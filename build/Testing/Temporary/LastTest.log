@@ -1,0 +1,58 @@
+Start testing: Jun 23 16:04 Central Daylight Time
+----------------------------------------------------------
+1/3 Testing: vm_smoke
+1/3 Test: vm_smoke
+Command: "C:/Users/agswe/OneDrive/Desktop/MPLC/build/tests/runtime/Release/test_vm.exe"
+Directory: C:/Users/agswe/OneDrive/Desktop/MPLC/build/tests/runtime
+"vm_smoke" start time: Jun 23 16:04 Central Daylight Time
+Output:
+----------------------------------------------------------
+test_vm OK
+<end of output>
+Test time =   0.66 sec
+----------------------------------------------------------
+Test Passed.
+"vm_smoke" end time: Jun 23 16:04 Central Daylight Time
+"vm_smoke" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/3 Testing: runtime_e2e
+2/3 Test: runtime_e2e
+Command: "C:/Users/agswe/OneDrive/Desktop/MPLC/build/tests/runtime/Release/test_runtime_e2e.exe"
+Directory: C:/Users/agswe/OneDrive/Desktop/MPLC/build/tests/runtime
+"runtime_e2e" start time: Jun 23 16:04 Central Daylight Time
+Output:
+----------------------------------------------------------
+test_runtime_e2e OK
+<end of output>
+Test time =   0.35 sec
+----------------------------------------------------------
+Test Passed.
+"runtime_e2e" end time: Jun 23 16:04 Central Daylight Time
+"runtime_e2e" time elapsed: 00:00:00
+----------------------------------------------------------
+
+3/3 Testing: compiler_roundtrip
+3/3 Test: compiler_roundtrip
+Command: "C:/Program Files/CMake/bin/cmake.exe" "-D" "MPLC=C:/Users/agswe/OneDrive/Desktop/MPLC/build/compiler/Release/mplc.exe" "-D" "SRC=C:/Users/agswe/OneDrive/Desktop/MPLC/tests/compiler/sample.st" "-D" "OUT=C:/Users/agswe/OneDrive/Desktop/MPLC/build/tests/sample.mplc" "-P" "C:/Users/agswe/OneDrive/Desktop/MPLC/tests/compiler/run_compile.cmake"
+Directory: C:/Users/agswe/OneDrive/Desktop/MPLC/build/tests/compiler
+"compiler_roundtrip" start time: Jun 23 16:04 Central Daylight Time
+Output:
+----------------------------------------------------------
+Compiled C:/Users/agswe/OneDrive/Desktop/MPLC/tests/compiler/sample.st -> C:/Users/agswe/OneDrive/Desktop/MPLC/build/tests/sample.mplc (211 bytes)
+MPLC package: C:/Users/agswe/OneDrive/Desktop/MPLC/build/tests/sample.mplc
+  ABI version: 1
+  Cycle: 10000 us
+  POUs: 1
+    POU 1: kind=0 offset=0 size=7
+  IO channels: 4
+  Tasks: 1
+<end of output>
+Test time =   0.31 sec
+----------------------------------------------------------
+Test Passed.
+"compiler_roundtrip" end time: Jun 23 16:04 Central Daylight Time
+"compiler_roundtrip" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Jun 23 16:04 Central Daylight Time

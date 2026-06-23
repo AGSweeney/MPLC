@@ -1,0 +1,12 @@
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\cli\main.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\main.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\common\ir.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\ir.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\common\diag.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\diag.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\semantic\semantic.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\semantic.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\codegen\codegen.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\codegen.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\linker\linker.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\linker.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\frontend\st\st_parser.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\st_parser.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\frontend\il\il_parser.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\il_parser.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\frontend\plcopen\plcopen_parser.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\plcopen_parser.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\frontend\ld\ld_parser.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\ld_parser.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\frontend\fbd\fbd_parser.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\fbd_parser.obj
+C:\Users\agswe\OneDrive\Desktop\MPLC\compiler\frontend\sfc\sfc_parser.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\compiler\mplc.dir\Release\sfc_parser.obj

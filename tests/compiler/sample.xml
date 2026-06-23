@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types><dataTypes/><pous/></types>
+  <instances><configurations/></instances>
+  <contentHeader name="Sample"/>
+  <body>
+    <ST><![CDATA[
+PROGRAM Main
+    Output := Input;
+END_PROGRAM
+    ]]></ST>
+    <LD>
+      <leftPowerRail>
+        <connectionPointOut/>
+      </leftPowerRail>
+      <contact variable="Input" localId="1"/>
+      <coil variable="Output" localId="2"/>
+    </LD>
+    <FBD>
+      <block typeName="TON" localId="1"/>
+    </FBD>
+    <SFC>
+      <step localId="1" name="Init"/>
+      <transition localId="2"/>
+    </SFC>
+  </body>
+</project>

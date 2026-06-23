@@ -1,0 +1,10 @@
+^C:\USERS\AGSWE\ONEDRIVE\DESKTOP\MPLC\BUILD\CMAKEFILES\749B3A6F1126D369DA16EBF292CC0A61\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/agswe/OneDrive/Desktop/MPLC -BC:/Users/agswe/OneDrive/Desktop/MPLC/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/agswe/OneDrive/Desktop/MPLC/build/MPLC.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

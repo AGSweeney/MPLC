@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="C:\Users\agswe\OneDrive\Desktop\MPLC\platforms\generic\hal_generic.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\agswe\OneDrive\Desktop\MPLC\platforms\generic\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{83A7C3E7-58DD-35E1-B384-07C677544667}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>
