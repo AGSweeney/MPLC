@@ -52,6 +52,7 @@ Typical loop: edit `.st` → **Compile** (writes `<source>.mplc` beside the file
 | Document | Description |
 |----------|-------------|
 | [docs/architecture.md](docs/architecture.md) | Compiler, VM, package format, ports |
+| [docs/motion-hal.md](docs/motion-hal.md) | Motion HAL, units, backend integration examples |
 | [docs/README.md](docs/README.md) | Documentation index |
 | [docs/netburner-mod54415.md](docs/netburner-mod54415.md) | MOD54415 bring-up and deployment |
 | [platforms/netburner/README.md](platforms/netburner/README.md) | NetBurner platform overview |

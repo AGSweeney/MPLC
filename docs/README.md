@@ -4,6 +4,7 @@
 |----------|----------|
 | [../README.md](../README.md) | Project overview, quick start, Studio summary |
 | [architecture.md](architecture.md) | Compiler, VM, package format, tooling |
+| [motion-hal.md](motion-hal.md) | Motion HAL contract, units, backend examples |
 | [netburner-mod54415.md](netburner-mod54415.md) | MOD54415 bring-up, HTTP upload, firmware |
 | [MPLC_Studio.png](MPLC_Studio.png) | Studio screenshot (also in Studio README) |
 

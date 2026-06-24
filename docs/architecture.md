@@ -13,6 +13,7 @@ MPLC is a portable IEC 61131-3 runtime written in C. A host-side compiler lowers
 7. **I/O mapping** — `%I/%Q/%M` indices bound via HAL (`runtime/io/`).
 8. **Standard library** — native IEC FBs (`runtime/stdlib/`).
 9. **HAL** — platform contract (`hal/include/mplc_hal.h`).
+10. **Motion** — PLCopen-inspired MC FBs (`runtime/motion/`), motion engine, and Motion HAL (`hal/include/mplc_motion_hal.h`). See [motion-hal.md](motion-hal.md).
 
 ST text supports `//` line comments, `(* block *)` comments, and `#` line comments (useful for file headers).
 
