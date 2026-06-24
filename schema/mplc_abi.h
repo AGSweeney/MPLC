@@ -138,6 +138,19 @@ typedef enum {
     MPLC_FB_F_TRIG = 7,
     MPLC_FB_SR    = 8,
     MPLC_FB_RS    = 9,
+
+    /* PLCopen-inspired motion function blocks */
+    MPLC_FB_MC_POWER                = 10,
+    MPLC_FB_MC_RESET                = 11,
+    MPLC_FB_MC_HOME                 = 12,
+    MPLC_FB_MC_MOVE_ABSOLUTE        = 13,
+    MPLC_FB_MC_MOVE_RELATIVE        = 14,
+    MPLC_FB_MC_MOVE_VELOCITY        = 15,
+    MPLC_FB_MC_STOP                 = 16,
+    MPLC_FB_MC_HALT                 = 17,
+    MPLC_FB_MC_READ_ACTUAL_POSITION = 18,
+    MPLC_FB_MC_READ_STATUS          = 19,
+
     MPLC_FB_CUSTOM = 255
 } mplc_native_fb_t;
 

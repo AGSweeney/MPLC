@@ -29,6 +29,9 @@ typedef struct {
 const mplc_fb_vtable_t *mplc_stdlib_get_vtable(mplc_native_fb_t type);
 uint32_t mplc_stdlib_instance_size(mplc_native_fb_t type);
 
+/* Unified lookup: stdlib FBs first, then motion MC FBs. */
+const mplc_fb_vtable_t *mplc_fb_get_vtable(mplc_native_fb_t type);
+
 #ifdef __cplusplus
 }
 #endif

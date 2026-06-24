@@ -33,4 +33,14 @@ target_include_directories(test_dips_to_leds_package PRIVATE
     ${CMAKE_SOURCE_DIR}/platforms/generic
 )
 
+add_executable(test_motion test_motion.c)
+target_link_libraries(test_motion PRIVATE mplc_runtime mplc_hal_generic)
+target_include_directories(test_motion PRIVATE
+    ${CMAKE_SOURCE_DIR}/runtime/include
+    ${CMAKE_SOURCE_DIR}/schema
+    ${CMAKE_SOURCE_DIR}/hal/include
+)
+
+add_test(NAME motion COMMAND test_motion)
+
 add_test(NAME dips_to_leds_package COMMAND test_dips_to_leds_package)

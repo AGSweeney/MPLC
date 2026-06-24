@@ -9,6 +9,7 @@
 #include "mplc/scheduler.h"
 #include "mplc/io.h"
 #include "mplc/stdlib.h"
+#include "mplc/motion.h"
 #include "mplc_hal.h"
 #include "mplc_endian.h"
 #include <stdlib.h>
@@ -27,6 +28,9 @@ static int runtime_cycle(void *ctx, uint16_t program_id)
 {
     mplc_runtime_t *rt = (mplc_runtime_t *)ctx;
     uint32_t i;
+    uint32_t dt_us = rt->pkg.header ? MPLC_LE32(rt->pkg.header->default_cycle_us) : 10000U;
+
+    mplc_motion_cycle(dt_us);
 
     for (i = 0; i < rt->pkg.pou_count; i++) {
         const mplc_pou_desc_t *pou = &rt->pkg.pous[i];
@@ -109,7 +113,7 @@ int mplc_runtime_load_package(mplc_runtime_t *rt, const uint8_t *data, size_t si
     }
 
     for (i = 0; i < rt->pkg.fb_count; i++) {
-        const mplc_fb_vtable_t *vt = mplc_stdlib_get_vtable(
+        const mplc_fb_vtable_t *vt = mplc_fb_get_vtable(
             (mplc_native_fb_t)MPLC_LE16(rt->pkg.fb_instances[i].fb_type));
         if (vt && vt->init && rt->fb_arena) {
             void *inst = rt->fb_arena + MPLC_LE32(rt->pkg.fb_instances[i].instance_offset);
@@ -136,6 +140,10 @@ int mplc_runtime_load_package(mplc_runtime_t *rt, const uint8_t *data, size_t si
     }
 
     mplc_io_init(&rt->io_ctx, rt->pkg.io_map, rt->pkg.io_count, rt->data_segment, rt->pkg.data_size);
+
+    if (mplc_motion_init(MPLC_MOTION_MAX_AXES) != 0) {
+        return -5;
+    }
 
     memset(&sched_cfg, 0, sizeof(sched_cfg));
     sched_cfg.tasks = rt->pkg.tasks;

@@ -12,6 +12,9 @@ add_library(mplc_runtime STATIC
     core/runtime.c
     io/io.c
     stdlib/stdlib.c
+    motion/motion.c
+    motion/mc_fb.c
+    motion/motion_hal_default.c
 )
 
 target_include_directories(mplc_runtime PUBLIC

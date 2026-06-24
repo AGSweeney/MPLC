@@ -169,7 +169,7 @@ static int exec_native_fb(mplc_vm_t *vm, uint16_t fb_type, int32_t instance_offs
     int32_t params[8];
     int32_t i;
 
-    vt = mplc_stdlib_get_vtable((mplc_native_fb_t)fb_type);
+    vt = mplc_fb_get_vtable((mplc_native_fb_t)fb_type);
     if (!vt || !vt->cycle) {
         return -1;
     }
