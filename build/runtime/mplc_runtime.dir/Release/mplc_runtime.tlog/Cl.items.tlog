@@ -1,6 +1,0 @@
-C:\Users\agswe\OneDrive\Desktop\MPLC\runtime\core\loader.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\runtime\mplc_runtime.dir\Release\loader.obj
-C:\Users\agswe\OneDrive\Desktop\MPLC\runtime\core\vm.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\runtime\mplc_runtime.dir\Release\vm.obj
-C:\Users\agswe\OneDrive\Desktop\MPLC\runtime\core\scheduler.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\runtime\mplc_runtime.dir\Release\scheduler.obj
-C:\Users\agswe\OneDrive\Desktop\MPLC\runtime\core\runtime.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\runtime\mplc_runtime.dir\Release\runtime.obj
-C:\Users\agswe\OneDrive\Desktop\MPLC\runtime\io\io.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\runtime\mplc_runtime.dir\Release\io.obj
-C:\Users\agswe\OneDrive\Desktop\MPLC\runtime\stdlib\stdlib.c;C:\Users\agswe\OneDrive\Desktop\MPLC\build\runtime\mplc_runtime.dir\Release\stdlib.obj

@@ -1,0 +1,5 @@
+<!-- Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com> SPDX-License-Identifier: BSD-3-Clause -->
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+  <path fill="#34D399" d="M8.7 15.3a3 3 0 010-4.2l2.4-2.4 1.4 1.4-2.4 2.4a1 1 0 000 1.4 1 1 0 001.4 0l2.4-2.4 1.4 1.4-2.4 2.4a3 3 0 01-4.2 0m6.6-6.6a3 3 0 010 4.2l-2.4 2.4-1.4-1.4 2.4-2.4a1 1 0 000-1.4 1 1 0 00-1.4 0L10.1 13 8.7 11.6l2.4-2.4a3 3 0 014.2 0"/>
+</svg>

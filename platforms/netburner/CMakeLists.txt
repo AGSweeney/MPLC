@@ -1,5 +1,8 @@
+# Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 add_library(mplc_hal_netburner STATIC
-    mod54415/hal_netburner.c
+    mod54415/hal_netburner.cpp
     mod54415/mplc_plc_runtime.c
 )
 
@@ -14,7 +17,7 @@ option(MPLC_NETBURNER_HOST_TEST "Build MOD54415 host smoke test" ON)
 
 if(MPLC_NETBURNER_HOST_TEST)
     add_executable(mplc_netburner_test
-        mod54415/mplc_task.c
+        mod54415/mplc_task.cpp
         mod54415/embedded_stub.c
         mod54415/host_test_main.c
     )

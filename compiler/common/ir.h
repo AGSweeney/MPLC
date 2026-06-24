@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #ifndef MPLC_IR_H
 #define MPLC_IR_H
 
@@ -16,7 +21,7 @@ typedef enum {
 } ir_expr_kind_t;
 
 typedef enum {
-    IR_BIN_ADD, IR_BIN_SUB, IR_BIN_MUL, IR_BIN_DIV,
+    IR_BIN_ADD, IR_BIN_SUB, IR_BIN_MUL, IR_BIN_DIV, IR_BIN_MOD,
     IR_BIN_AND, IR_BIN_OR, IR_BIN_XOR,
     IR_BIN_EQ, IR_BIN_NE, IR_BIN_LT, IR_BIN_LE, IR_BIN_GT, IR_BIN_GE
 } ir_binop_t;
@@ -58,6 +63,7 @@ typedef enum {
     IR_STMT_ASSIGN,
     IR_STMT_IF,
     IR_STMT_WHILE,
+    IR_STMT_REPEAT,
     IR_STMT_RETURN,
     IR_STMT_EXPR
 } ir_stmt_kind_t;
@@ -78,6 +84,12 @@ typedef struct {
     uint32_t   body_count;
 } ir_while_t;
 
+typedef struct {
+    ir_stmt_t *body;
+    uint32_t   body_count;
+    ir_expr_t *until_cond;
+} ir_repeat_t;
+
 struct ir_stmt {
     ir_stmt_kind_t kind;
     union {
@@ -87,6 +99,7 @@ struct ir_stmt {
         } assign;
         ir_if_t    if_stmt;
         ir_while_t while_stmt;
+        ir_repeat_t repeat_stmt;
         ir_expr_t *expr;
     } u;
 };

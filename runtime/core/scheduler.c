@@ -1,5 +1,11 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "mplc/scheduler.h"
 #include "mplc_hal.h"
+#include "mplc_endian.h"
 #include <stdlib.h>
 
 struct mplc_scheduler {
@@ -53,6 +59,7 @@ void mplc_scheduler_set_cycle_fn(mplc_scheduler_t *sched, mplc_cycle_fn fn, void
 int mplc_scheduler_run_once(mplc_scheduler_t *sched)
 {
     uint32_t i;
+    uint16_t program_id;
     uint64_t cycle_start;
     uint64_t deadline;
     uint32_t cycle_us;
@@ -75,7 +82,8 @@ int mplc_scheduler_run_once(mplc_scheduler_t *sched)
         }
     } else {
         for (i = 0; i < sched->cfg.task_count; i++) {
-            if (sched->cycle_fn(sched->cycle_ctx, sched->cfg.tasks[i].program_id) != 0) {
+            program_id = MPLC_LE16(sched->cfg.tasks[i].program_id);
+            if (sched->cycle_fn(sched->cycle_ctx, program_id) != 0) {
                 return -2;
             }
         }

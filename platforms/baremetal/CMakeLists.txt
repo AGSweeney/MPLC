@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 add_library(mplc_hal_baremetal STATIC hal_baremetal.c)
 target_include_directories(mplc_hal_baremetal PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

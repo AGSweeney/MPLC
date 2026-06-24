@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 cmake_minimum_required(VERSION 3.16)
 
 if(NOT DEFINED MPLC OR NOT DEFINED SRC OR NOT DEFINED OUT)

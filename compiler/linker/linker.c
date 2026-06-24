@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "linker.h"
 #include "mplc_abi.h"
 #include <stdlib.h>
@@ -16,6 +21,24 @@ static int append_bytes(uint8_t **buf, size_t *size, size_t *cap, const void *sr
     memcpy(*buf + *size, src, n);
     *size += n;
     return 0;
+}
+
+static uint32_t align4_u32(uint32_t v)
+{
+    return (v + 3U) & ~3U;
+}
+
+static int append_zero_pad_to(uint8_t **buf, size_t *size, size_t *cap, uint32_t target_size)
+{
+    static const uint8_t zeros[4] = {0, 0, 0, 0};
+    while (*size < (size_t)target_size) {
+        size_t remain = (size_t)target_size - *size;
+        size_t chunk = remain > sizeof(zeros) ? sizeof(zeros) : remain;
+        if (append_bytes(buf, size, cap, zeros, chunk) != 0) {
+            return -1;
+        }
+    }
+    return *size == (size_t)target_size ? 0 : -1;
 }
 
 int linker_build_package(const ir_module_t *mod, const codegen_module_t *cg,
@@ -95,27 +118,27 @@ int linker_build_package(const ir_module_t *mod, const codegen_module_t *cg,
     section_table_size = (uint32_t)(sizeof(mplc_pkg_header_t) +
                                     hdr.section_count * sizeof(mplc_section_header_t));
 
-    uint32_t off = section_table_size;
+    uint32_t off = align4_u32(section_table_size);
 
     sections[0].type = MPLC_SECTION_CODE;
     sections[0].offset = off;
     sections[0].size = (uint32_t)code_size;
-    off += sections[0].size;
+    off = align4_u32(off + sections[0].size);
 
     sections[1].type = MPLC_SECTION_DATA;
     sections[1].offset = off;
     sections[1].size = (uint32_t)data_size;
-    off += sections[1].size;
+    off = align4_u32(off + sections[1].size);
 
     sections[2].type = MPLC_SECTION_SYMTAB;
     sections[2].offset = off;
     sections[2].size = (uint32_t)(cg->pou_count * sizeof(mplc_pou_desc_t));
-    off += sections[2].size;
+    off = align4_u32(off + sections[2].size);
 
     sections[3].type = MPLC_SECTION_IOMAP;
     sections[3].offset = off;
     sections[3].size = (uint32_t)(globals->count * sizeof(mplc_io_entry_t));
-    off += sections[3].size;
+    off = align4_u32(off + sections[3].size);
 
     sections[4].type = MPLC_SECTION_FBINST;
     sections[4].offset = off;
@@ -124,7 +147,7 @@ int linker_build_package(const ir_module_t *mod, const codegen_module_t *cg,
     sections[5].type = MPLC_SECTION_TASKS;
     sections[5].offset = off;
     sections[5].size = (uint32_t)sizeof(mplc_task_desc_t);
-    off += sections[5].size;
+    off = align4_u32(off + sections[5].size);
 
     sections[6].type = MPLC_SECTION_SFC;
     sections[6].offset = off;
@@ -132,12 +155,17 @@ int linker_build_package(const ir_module_t *mod, const codegen_module_t *cg,
 
     if (append_bytes(&image, &image_size, &image_cap, &hdr, sizeof(hdr)) != 0 ||
         append_bytes(&image, &image_size, &image_cap, sections, sizeof(sections)) != 0 ||
+        append_zero_pad_to(&image, &image_size, &image_cap, sections[0].offset) != 0 ||
         append_bytes(&image, &image_size, &image_cap, code_blob, code_size) != 0 ||
+        append_zero_pad_to(&image, &image_size, &image_cap, sections[1].offset) != 0 ||
         append_bytes(&image, &image_size, &image_cap, data_blob, data_size) != 0 ||
+        append_zero_pad_to(&image, &image_size, &image_cap, sections[2].offset) != 0 ||
         append_bytes(&image, &image_size, &image_cap, pous,
                      cg->pou_count * sizeof(mplc_pou_desc_t)) != 0 ||
+        append_zero_pad_to(&image, &image_size, &image_cap, sections[3].offset) != 0 ||
         append_bytes(&image, &image_size, &image_cap, io_entries,
                      globals->count * sizeof(mplc_io_entry_t)) != 0 ||
+        append_zero_pad_to(&image, &image_size, &image_cap, sections[5].offset) != 0 ||
         append_bytes(&image, &image_size, &image_cap, &task, sizeof(task)) != 0) {
         free(pous); free(io_entries); free(code_blob); free(data_blob); free(image);
         return -5;

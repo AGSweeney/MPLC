@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "codegen.h"
 #include <stdlib.h>
 #include <string.h>
@@ -107,6 +112,7 @@ static void gen_expr(codegen_buf_t *buf, const ir_expr_t *e)
         case IR_BIN_SUB: codegen_emit_u8(buf, MPLC_OP_SUB_I32); break;
         case IR_BIN_MUL: codegen_emit_u8(buf, MPLC_OP_MUL_I32); break;
         case IR_BIN_DIV: codegen_emit_u8(buf, MPLC_OP_DIV_I32); break;
+        case IR_BIN_MOD: codegen_emit_u8(buf, MPLC_OP_MOD_I32); break;
         case IR_BIN_AND: codegen_emit_u8(buf, MPLC_OP_AND); break;
         case IR_BIN_OR:  codegen_emit_u8(buf, MPLC_OP_OR); break;
         case IR_BIN_XOR: codegen_emit_u8(buf, MPLC_OP_XOR); break;
@@ -125,6 +131,12 @@ static void gen_expr(codegen_buf_t *buf, const ir_expr_t *e)
         gen_expr(buf, e->left);
         if (e->u.unop == IR_UN_NOT) {
             codegen_emit_u8(buf, MPLC_OP_NOT);
+        } else if (e->u.unop == IR_UN_NEG) {
+            codegen_emit_u8(buf, MPLC_OP_PUSH_I32);
+            codegen_emit_i32(buf, 0);
+            track_push(buf);
+            codegen_emit_u8(buf, MPLC_OP_SUB_I32);
+            track_pop(buf, 1U);
         }
         break;
 
@@ -209,6 +221,23 @@ static void gen_stmt(codegen_buf_t *buf, const ir_stmt_t *s)
         codegen_emit_u32(buf, loop_start);
         uint32_t exit_pos = buf->size;
         memcpy(buf->bytes + exit_jmp, &exit_pos, sizeof(exit_pos));
+        break;
+    }
+    case IR_STMT_REPEAT: {
+        const uint32_t loop_start = buf->size;
+        uint32_t i;
+        for (i = 0; i < s->u.repeat_stmt.body_count; i++) {
+            gen_stmt(buf, &s->u.repeat_stmt.body[i]);
+        }
+        gen_expr(buf, s->u.repeat_stmt.until_cond);
+        codegen_emit_u8(buf, MPLC_OP_JMP_IF);
+        const uint32_t exit_pos = buf->size;
+        codegen_emit_u32(buf, 0U);
+        track_pop(buf, 1U);
+        codegen_emit_u8(buf, MPLC_OP_JMP);
+        codegen_emit_u32(buf, loop_start);
+        const uint32_t end_pos = buf->size;
+        memcpy(buf->bytes + exit_pos, &end_pos, sizeof(end_pos));
         break;
     }
     default:

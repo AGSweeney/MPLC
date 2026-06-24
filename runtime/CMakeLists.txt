@@ -1,3 +1,10 @@
+# Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
+if(NOT DEFINED MPLC_REPO_ROOT)
+    set(MPLC_REPO_ROOT ${CMAKE_SOURCE_DIR})
+endif()
+
 add_library(mplc_runtime STATIC
     core/loader.c
     core/vm.c
@@ -8,9 +15,9 @@ add_library(mplc_runtime STATIC
 )
 
 target_include_directories(mplc_runtime PUBLIC
-    ${CMAKE_SOURCE_DIR}/runtime/include
-    ${CMAKE_SOURCE_DIR}/schema
-    ${CMAKE_SOURCE_DIR}/hal/include
+    ${MPLC_REPO_ROOT}/runtime/include
+    ${MPLC_REPO_ROOT}/schema
+    ${MPLC_REPO_ROOT}/hal/include
 )
 
 if(MSVC)

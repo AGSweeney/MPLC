@@ -1,5 +1,11 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "mplc/vm.h"
 #include "mplc/stdlib.h"
+#include "mplc_endian.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -125,6 +131,36 @@ static const mplc_io_entry_t *find_io_slot(mplc_vm_t *vm, uint16_t slot)
     return NULL;
 }
 
+static uint16_t read_u16_pc(const uint8_t **pc)
+{
+    uint16_t v = mplc_read_le16(*pc);
+    *pc += sizeof(uint16_t);
+    return v;
+}
+
+static uint32_t read_u32_pc(const uint8_t **pc)
+{
+    uint32_t v = mplc_read_le32(*pc);
+    *pc += sizeof(uint32_t);
+    return v;
+}
+
+static int32_t read_i32_pc(const uint8_t **pc)
+{
+    return (int32_t)read_u32_pc(pc);
+}
+
+static double read_r64_pc(const uint8_t **pc)
+{
+    union {
+        uint64_t u;
+        double d;
+    } cvt;
+    cvt.u = mplc_read_le64(*pc);
+    *pc += sizeof(uint64_t);
+    return cvt.d;
+}
+
 static int exec_native_fb(mplc_vm_t *vm, uint16_t fb_type, int32_t instance_offset,
                           int32_t param_count)
 {
@@ -218,25 +254,19 @@ int mplc_vm_run_pou(mplc_vm_t *vm, uint16_t pou_id, uint32_t code_offset, uint32
             break;
         }
         case MPLC_OP_PUSH_I32: {
-            int32_t v;
-            memcpy(&v, pc, sizeof(v));
-            pc += sizeof(v);
+            int32_t v = read_i32_pc(&pc);
             push_i32(vm, v);
             break;
         }
         case MPLC_OP_PUSH_R64: {
-            double v;
-            memcpy(&v, pc, sizeof(v));
-            pc += sizeof(v);
+            double v = read_r64_pc(&pc);
             push_r64(vm, v);
             break;
         }
 
         case MPLC_OP_LOAD_VAR: {
             uint8_t type = *pc++;
-            uint32_t off;
-            memcpy(&off, pc, sizeof(off));
-            pc += sizeof(off);
+            uint32_t off = read_u32_pc(&pc);
             if (type == MPLC_TYPE_BOOL) {
                 push_bool(vm, read_bool_at(vm, off));
             } else if (type == MPLC_TYPE_REAL || type == MPLC_TYPE_LREAL) {
@@ -248,9 +278,7 @@ int mplc_vm_run_pou(mplc_vm_t *vm, uint16_t pou_id, uint32_t code_offset, uint32
         }
         case MPLC_OP_STORE_VAR: {
             uint8_t type = *pc++;
-            uint32_t off;
-            memcpy(&off, pc, sizeof(off));
-            pc += sizeof(off);
+            uint32_t off = read_u32_pc(&pc);
             if (type == MPLC_TYPE_BOOL) {
                 write_bool_at(vm, off, pop_bool(vm));
             } else if (type == MPLC_TYPE_REAL || type == MPLC_TYPE_LREAL) {
@@ -261,33 +289,33 @@ int mplc_vm_run_pou(mplc_vm_t *vm, uint16_t pou_id, uint32_t code_offset, uint32
             break;
         }
         case MPLC_OP_LOAD_IO: {
-            uint16_t slot;
-            memcpy(&slot, pc, sizeof(slot));
-            pc += sizeof(slot);
+            uint16_t slot = read_u16_pc(&pc);
             const mplc_io_entry_t *entry = find_io_slot(vm, slot);
             if (!entry) {
                 push_i32(vm, 0);
             } else if (entry->type == MPLC_TYPE_BOOL) {
-                push_bool(vm, read_bool_at(vm, entry->data_offset));
+                uint32_t off = MPLC_LE32(entry->data_offset);
+                bool val = read_bool_at(vm, off);
+                push_bool(vm, val);
             } else if (entry->type == MPLC_TYPE_REAL || entry->type == MPLC_TYPE_LREAL) {
-                push_r64(vm, read_r64_at(vm, entry->data_offset));
+                push_r64(vm, read_r64_at(vm, MPLC_LE32(entry->data_offset)));
             } else {
-                push_i32(vm, read_i32_at(vm, entry->data_offset));
+                push_i32(vm, read_i32_at(vm, MPLC_LE32(entry->data_offset)));
             }
             break;
         }
         case MPLC_OP_STORE_IO: {
-            uint16_t slot;
-            memcpy(&slot, pc, sizeof(slot));
-            pc += sizeof(slot);
+            uint16_t slot = read_u16_pc(&pc);
             const mplc_io_entry_t *entry = find_io_slot(vm, slot);
             if (entry) {
                 if (entry->type == MPLC_TYPE_BOOL) {
-                    write_bool_at(vm, entry->data_offset, pop_bool(vm));
+                    uint32_t off = MPLC_LE32(entry->data_offset);
+                    bool val = pop_bool(vm);
+                    write_bool_at(vm, off, val);
                 } else if (entry->type == MPLC_TYPE_REAL || entry->type == MPLC_TYPE_LREAL) {
-                    write_r64_at(vm, entry->data_offset, pop_r64(vm));
+                    write_r64_at(vm, MPLC_LE32(entry->data_offset), pop_r64(vm));
                 } else {
-                    write_i32_at(vm, entry->data_offset, pop_i32(vm));
+                    write_i32_at(vm, MPLC_LE32(entry->data_offset), pop_i32(vm));
                 }
             }
             break;
@@ -318,6 +346,9 @@ int mplc_vm_run_pou(mplc_vm_t *vm, uint16_t pou_id, uint32_t code_offset, uint32
         case MPLC_OP_DIV_I32:
             { int32_t b = pop_i32(vm); int32_t a = pop_i32(vm); push_i32(vm, b ? a / b : 0); }
             break;
+        case MPLC_OP_MOD_I32:
+            { int32_t b = pop_i32(vm); int32_t a = pop_i32(vm); push_i32(vm, b ? a % b : 0); }
+            break;
         case MPLC_OP_ADD_R64:
             push_r64(vm, pop_r64(vm) + pop_r64(vm));
             break;
@@ -331,24 +362,36 @@ int mplc_vm_run_pou(mplc_vm_t *vm, uint16_t pou_id, uint32_t code_offset, uint32
             { double b = pop_r64(vm); double a = pop_r64(vm); push_r64(vm, b ? a / b : 0.0); }
             break;
 
-        case MPLC_OP_EQ_I32:
-            push_bool(vm, pop_i32(vm) == pop_i32(vm));
+        case MPLC_OP_EQ_I32: {
+            int32_t right = pop_i32(vm);
+            push_bool(vm, pop_i32(vm) == right);
             break;
-        case MPLC_OP_NE_I32:
-            push_bool(vm, pop_i32(vm) != pop_i32(vm));
+        }
+        case MPLC_OP_NE_I32: {
+            int32_t right = pop_i32(vm);
+            push_bool(vm, pop_i32(vm) != right);
             break;
-        case MPLC_OP_LT_I32:
-            push_bool(vm, pop_i32(vm) < pop_i32(vm));
+        }
+        case MPLC_OP_LT_I32: {
+            int32_t right = pop_i32(vm);
+            push_bool(vm, pop_i32(vm) < right);
             break;
-        case MPLC_OP_LE_I32:
-            push_bool(vm, pop_i32(vm) <= pop_i32(vm));
+        }
+        case MPLC_OP_LE_I32: {
+            int32_t right = pop_i32(vm);
+            push_bool(vm, pop_i32(vm) <= right);
             break;
-        case MPLC_OP_GT_I32:
-            push_bool(vm, pop_i32(vm) > pop_i32(vm));
+        }
+        case MPLC_OP_GT_I32: {
+            int32_t right = pop_i32(vm);
+            push_bool(vm, pop_i32(vm) > right);
             break;
-        case MPLC_OP_GE_I32:
-            push_bool(vm, pop_i32(vm) >= pop_i32(vm));
+        }
+        case MPLC_OP_GE_I32: {
+            int32_t right = pop_i32(vm);
+            push_bool(vm, pop_i32(vm) >= right);
             break;
+        }
         case MPLC_OP_EQ_BOOL:
             push_bool(vm, pop_bool(vm) == pop_bool(vm));
             break;
@@ -361,53 +404,37 @@ int mplc_vm_run_pou(mplc_vm_t *vm, uint16_t pou_id, uint32_t code_offset, uint32
             break;
 
         case MPLC_OP_JMP: {
-            uint32_t target;
-            memcpy(&target, pc, sizeof(target));
+            uint32_t target = read_u32_pc(&pc);
             pc = vm->cfg.code_base + code_offset + target;
             break;
         }
         case MPLC_OP_JMP_IF: {
-            uint32_t target;
-            memcpy(&target, pc, sizeof(target));
-            pc += sizeof(target);
+            uint32_t target = read_u32_pc(&pc);
             if (pop_bool(vm)) {
                 pc = vm->cfg.code_base + code_offset + target;
             }
             break;
         }
         case MPLC_OP_JMP_IFNOT: {
-            uint32_t target;
-            memcpy(&target, pc, sizeof(target));
-            pc += sizeof(target);
+            uint32_t target = read_u32_pc(&pc);
             if (!pop_bool(vm)) {
                 pc = vm->cfg.code_base + code_offset + target;
             }
             break;
         }
         case MPLC_OP_CALL: {
-            uint16_t target_pou;
-            uint32_t target_off, target_size;
-            memcpy(&target_pou, pc, sizeof(target_pou));
-            pc += sizeof(target_pou);
-            memcpy(&target_off, pc, sizeof(target_off));
-            pc += sizeof(target_off);
-            memcpy(&target_size, pc, sizeof(target_size));
-            pc += sizeof(target_size);
+            uint16_t target_pou = read_u16_pc(&pc);
+            uint32_t target_off = read_u32_pc(&pc);
+            uint32_t target_size = read_u32_pc(&pc);
             if (mplc_vm_run_pou(vm, target_pou, target_off, target_size) != 0) {
                 return -2;
             }
             break;
         }
         case MPLC_OP_CALL_NATIVE_FB: {
-            uint16_t fb_type;
-            int32_t inst_off;
-            int32_t param_count;
-            memcpy(&fb_type, pc, sizeof(fb_type));
-            pc += sizeof(fb_type);
-            memcpy(&inst_off, pc, sizeof(inst_off));
-            pc += sizeof(inst_off);
-            memcpy(&param_count, pc, sizeof(param_count));
-            pc += sizeof(param_count);
+            uint16_t fb_type = read_u16_pc(&pc);
+            int32_t inst_off = read_i32_pc(&pc);
+            int32_t param_count = read_i32_pc(&pc);
             if (exec_native_fb(vm, fb_type, inst_off, param_count) != 0) {
                 return -3;
             }

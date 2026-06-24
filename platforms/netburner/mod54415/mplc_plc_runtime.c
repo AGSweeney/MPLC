@@ -1,7 +1,14 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "mplc/runtime.h"
 #include "mplc_hal_netburner.h"
 #include "mplc_hal.h"
 #include "hal_netburner_config.h"
+#include "mplc_nb_fs.h"
+#include <stdlib.h>
 #include <string.h>
 
 extern const uint8_t g_embedded_mplc[];
@@ -9,6 +16,8 @@ extern const uint32_t g_embedded_mplc_size;
 
 static mplc_runtime_t *g_rt = NULL;
 static uint64_t g_plc_cycles = 0U;
+static uint8_t *g_file_package = NULL;
+static size_t g_file_package_size = 0U;
 
 int mplc_netburner_plc_init(void)
 {
@@ -38,11 +47,18 @@ void mplc_netburner_plc_shutdown(void)
 {
     mplc_runtime_destroy(g_rt);
     g_rt = NULL;
+    free(g_file_package);
+    g_file_package = NULL;
+    g_file_package_size = 0U;
     mplc_hal_shutdown();
 }
 
 int mplc_netburner_load_embedded_package(void)
 {
+    free(g_file_package);
+    g_file_package = NULL;
+    g_file_package_size = 0U;
+
     if (!g_rt || g_embedded_mplc_size == 0U) {
         return -1;
     }
@@ -51,9 +67,29 @@ int mplc_netburner_load_embedded_package(void)
 
 int mplc_netburner_load_package_file(const char *path)
 {
-    (void)path;
-    /* NNDK: open file from internal flash filesystem and call mplc_runtime_load_package */
-    return -1;
+    uint8_t *buf;
+    size_t size;
+    int rc;
+
+    if (!g_rt || !path || path[0] == '\0') {
+        return -1;
+    }
+
+    rc = mplc_nb_fs_read_all(path, &buf, &size, (long)MPLC_NB_PACKAGE_FILE_MAX_BYTES);
+    if (rc != 0) {
+        return rc;
+    }
+
+    rc = mplc_runtime_load_package(g_rt, buf, size);
+    if (rc != 0) {
+        free(buf);
+        return -10;
+    }
+
+    free(g_file_package);
+    g_file_package = buf;
+    g_file_package_size = size;
+    return 0;
 }
 
 int mplc_netburner_run_one_cycle(void)

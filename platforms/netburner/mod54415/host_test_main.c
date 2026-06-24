@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "mplc_hal_netburner.h"
 #include "mplc_hal_netburner_host.h"
 #include "mplc/runtime.h"

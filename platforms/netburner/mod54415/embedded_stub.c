@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include <stdint.h>
 
 const uint8_t g_embedded_mplc[] = { 0 };

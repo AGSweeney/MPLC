@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "semantic.h"
 #include <stdlib.h>
 #include <string.h>
@@ -85,6 +90,12 @@ static int analyze_stmt(const ir_stmt_t *stmt, diag_ctx_t *diag, const char *fil
         for (i = 0; i < stmt->u.while_stmt.body_count; i++) {
             if (analyze_stmt(&stmt->u.while_stmt.body[i], diag, file) != 0) return -1;
         }
+        break;
+    case IR_STMT_REPEAT:
+        for (i = 0; i < stmt->u.repeat_stmt.body_count; i++) {
+            if (analyze_stmt(&stmt->u.repeat_stmt.body[i], diag, file) != 0) return -1;
+        }
+        if (analyze_expr(stmt->u.repeat_stmt.until_cond, diag, file) != 0) return -1;
         break;
     case IR_STMT_EXPR:
         if (analyze_expr(stmt->u.expr, diag, file) != 0) return -1;

@@ -1,0 +1,46 @@
+# Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
+{
+	"platforms": [ "MOD5441X" ],
+	"options": [
+		{
+			"id": "nbeclipse.toolchain.tool.gnu.cpp.compiler.option.include.paths",
+			"configuration": "ALL",
+			"value": [
+				"\"${workspace_loc:/${ProjName}/src}\"",
+				"\"${workspace_loc:/${ProjName}/../}\"",
+				"\"${workspace_loc:/${ProjName}/../../../../schema}\"",
+				"\"${workspace_loc:/${ProjName}/../../../../hal/include}\"",
+				"\"${workspace_loc:/${ProjName}/../../../../runtime/include}\""
+			]
+		},
+		{
+			"id": "nbeclipse.toolchain.tool.gnu.c.compiler.option.include.paths",
+			"configuration": "ALL",
+			"value": [
+				"\"${workspace_loc:/${ProjName}/src}\"",
+				"\"${workspace_loc:/${ProjName}/../}\"",
+				"\"${workspace_loc:/${ProjName}/../../../../schema}\"",
+				"\"${workspace_loc:/${ProjName}/../../../../hal/include}\"",
+				"\"${workspace_loc:/${ProjName}/../../../../runtime/include}\""
+			]
+		},
+		{
+			"id": "nbeclipse.toolchain.tool.gnu.cpp.compiler.option.definedsymbols",
+			"configuration": "ALL",
+			"value": [
+				"MPLC_NETBURNER_NNDK",
+				"MPLC_BIG_ENDIAN"
+			]
+		},
+		{
+			"id": "nbeclipse.toolchain.tool.gnu.c.compiler.option.definedsymbols",
+			"configuration": "ALL",
+			"value": [
+				"MPLC_NETBURNER_NNDK",
+				"MPLC_BIG_ENDIAN"
+			]
+		}
+	]
+}

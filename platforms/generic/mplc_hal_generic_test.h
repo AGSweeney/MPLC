@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #ifndef MPLC_HAL_GENERIC_TEST_H
 #define MPLC_HAL_GENERIC_TEST_H
 

@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * NNDK application entry template for MOD54415 + MPLC.
  *
  * Copy this file into your NBEclipse MOD5441X project and wire Init() to your

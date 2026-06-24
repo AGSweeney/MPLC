@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+# SPDX-License-Identifier: BSD-3-Clause
+
 cmake_minimum_required(VERSION 3.16)
 project(MPLC VERSION 0.1.0 LANGUAGES C)
 
@@ -8,12 +11,15 @@ set(CMAKE_C_EXTENSIONS OFF)
 option(MPLC_BUILD_COMPILER "Build host compiler toolchain" ON)
 option(MPLC_BUILD_RUNTIME  "Build portable runtime library" ON)
 option(MPLC_BUILD_TESTS    "Build unit tests" ON)
+option(MPLC_BUILD_STUDIO   "Build Qt MPLC Studio desktop app" OFF)
 option(MPLC_NO_FPU           "Use integer-only paths where possible" OFF)
 
+set(MPLC_REPO_ROOT ${CMAKE_SOURCE_DIR} CACHE INTERNAL "MPLC repository root")
+
 include_directories(
-    ${CMAKE_SOURCE_DIR}/schema
-    ${CMAKE_SOURCE_DIR}/hal/include
-    ${CMAKE_SOURCE_DIR}/runtime/include
+    ${MPLC_REPO_ROOT}/schema
+    ${MPLC_REPO_ROOT}/hal/include
+    ${MPLC_REPO_ROOT}/runtime/include
 )
 
 if(MPLC_BUILD_RUNTIME)
@@ -33,4 +39,8 @@ endif()
 if(MPLC_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(MPLC_BUILD_STUDIO)
+    add_subdirectory(tools/mplc-studio)
 endif()

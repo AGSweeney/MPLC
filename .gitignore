@@ -1,1 +1,29 @@
+# Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+# SPDX-License-Identifier: BSD-3-Clause
 
+# CMake / MSVC build trees
+build/
+build_local/
+build_studio/
+tools/mplc-studio/build/
+
+# Inno Setup staging (final installers in dist/ are published)
+dist/staging/
+tools/mplc-studio/dist/staging/
+
+# NetBurner NNDK firmware build output
+platforms/netburner/mod54415/nb_project/obj/
+
+# Visual Studio / IDE
+.vs/
+*.user
+*.suo
+*.sdf
+*.opensdf
+*.VC.db
+*.VC.VC.opendb
+
+# OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #ifndef MPLC_ABI_H
 #define MPLC_ABI_H
 
@@ -86,6 +91,7 @@ typedef enum {
     MPLC_OP_SUB_I32 = 31,
     MPLC_OP_MUL_I32 = 32,
     MPLC_OP_DIV_I32 = 33,
+    MPLC_OP_MOD_I32 = 38,
     MPLC_OP_ADD_R64 = 34,
     MPLC_OP_SUB_R64 = 35,
     MPLC_OP_MUL_R64 = 36,

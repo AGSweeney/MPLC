@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "mplc/runtime.h"
 #include "mplc/loader.h"
 #include "mplc/vm.h"
@@ -5,6 +10,7 @@
 #include "mplc/io.h"
 #include "mplc/stdlib.h"
 #include "mplc_hal.h"
+#include "mplc_endian.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -24,8 +30,11 @@ static int runtime_cycle(void *ctx, uint16_t program_id)
 
     for (i = 0; i < rt->pkg.pou_count; i++) {
         const mplc_pou_desc_t *pou = &rt->pkg.pous[i];
-        if (pou->pou_id == program_id || (program_id == 0U && pou->kind == MPLC_POU_PROGRAM)) {
-            return mplc_vm_run_pou(rt->vm, pou->pou_id, pou->code_offset, pou->code_size);
+        uint16_t pou_id = MPLC_LE16(pou->pou_id);
+        if (pou_id == program_id || (program_id == 0U && pou->kind == MPLC_POU_PROGRAM)) {
+            return mplc_vm_run_pou(rt->vm, pou_id,
+                                   MPLC_LE32(pou->code_offset),
+                                   MPLC_LE32(pou->code_size));
         }
     }
     return 0;
@@ -100,9 +109,10 @@ int mplc_runtime_load_package(mplc_runtime_t *rt, const uint8_t *data, size_t si
     }
 
     for (i = 0; i < rt->pkg.fb_count; i++) {
-        const mplc_fb_vtable_t *vt = mplc_stdlib_get_vtable((mplc_native_fb_t)rt->pkg.fb_instances[i].fb_type);
+        const mplc_fb_vtable_t *vt = mplc_stdlib_get_vtable(
+            (mplc_native_fb_t)MPLC_LE16(rt->pkg.fb_instances[i].fb_type));
         if (vt && vt->init && rt->fb_arena) {
-            void *inst = rt->fb_arena + rt->pkg.fb_instances[i].instance_offset;
+            void *inst = rt->fb_arena + MPLC_LE32(rt->pkg.fb_instances[i].instance_offset);
             vt->init(inst);
         }
     }
@@ -111,14 +121,15 @@ int mplc_runtime_load_package(mplc_runtime_t *rt, const uint8_t *data, size_t si
     vm_cfg.global_data = rt->data_segment;
     vm_cfg.global_size = rt->pkg.data_size;
     vm_cfg.fb_arena = rt->fb_arena;
-    vm_cfg.fb_arena_size = rt->pkg.header ? rt->pkg.header->fb_arena_size : 0U;
+    vm_cfg.fb_arena_size = rt->pkg.header ? MPLC_LE32(rt->pkg.header->fb_arena_size) : 0U;
     vm_cfg.code_base = rt->pkg.code_base;
     vm_cfg.code_size = rt->pkg.code_size;
     vm_cfg.io_map = rt->pkg.io_map;
     vm_cfg.io_count = rt->pkg.io_count;
     vm_cfg.fb_instances = rt->pkg.fb_instances;
     vm_cfg.fb_count = rt->pkg.fb_count;
-    vm_cfg.max_stack_depth = rt->pkg.header ? rt->pkg.header->max_stack_depth : MPLC_MAX_STACK_DEPTH;
+    vm_cfg.max_stack_depth = rt->pkg.header ? MPLC_LE32(rt->pkg.header->max_stack_depth)
+                                            : MPLC_MAX_STACK_DEPTH;
 
     if (mplc_vm_create(&rt->vm, &vm_cfg) != 0) {
         return -3;
@@ -131,7 +142,7 @@ int mplc_runtime_load_package(mplc_runtime_t *rt, const uint8_t *data, size_t si
     sched_cfg.task_count = rt->pkg.task_count;
     sched_cfg.pous = rt->pkg.pous;
     sched_cfg.pou_count = rt->pkg.pou_count;
-    sched_cfg.default_cycle_us = rt->pkg.header ? rt->pkg.header->default_cycle_us : 10000U;
+    sched_cfg.default_cycle_us = rt->pkg.header ? MPLC_LE32(rt->pkg.header->default_cycle_us) : 10000U;
 
     if (mplc_scheduler_create(&rt->scheduler, &sched_cfg) != 0) {
         return -4;
