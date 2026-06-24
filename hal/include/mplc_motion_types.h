@@ -39,6 +39,10 @@ typedef uint32_t mplc_motion_command_id_t;
 
 #define MPLC_MOTION_COMMAND_NONE ((mplc_motion_command_id_t)0U)
 
+#ifndef MPLC_MOTION_COMMAND_SLOTS
+#define MPLC_MOTION_COMMAND_SLOTS 32U
+#endif
+
 typedef struct {
     int32_t counts_per_unit_num;
     int32_t counts_per_unit_den;

@@ -17,7 +17,9 @@ typedef struct {
     int32_t target_position;
     int32_t command_velocity;
     int32_t target_velocity;
+    bool    homed;
     bool    stop_locked;
+    bool    stopping;
 } mplc_motion_hal_axis_t;
 
 static mplc_motion_hal_axis_t g_hal_axes[MPLC_MOTION_HAL_MAX_AXES];
@@ -26,6 +28,25 @@ static uint32_t               g_hal_axis_count;
 static bool hal_axis_valid(mplc_axis_ref_t axis)
 {
     return axis != MPLC_AXIS_INVALID && axis < g_hal_axis_count;
+}
+
+static void hal_fill_status(mplc_axis_ref_t axis, mplc_motion_hal_status_t *status)
+{
+    mplc_motion_hal_axis_t *ax = &g_hal_axes[axis];
+    int32_t remaining;
+
+    status->actual_position = ax->actual_position;
+    status->command_velocity = ax->command_velocity;
+    status->error = ax->error;
+    status->error_id = ax->error_id;
+    status->power_enabled = ax->enabled;
+    status->homed = ax->homed;
+    status->stopping = ax->stopping;
+    status->moving = ax->enabled && ax->command_velocity != 0;
+    remaining = ax->target_position - ax->actual_position;
+    status->target_reached = ax->enabled && remaining == 0 && ax->command_velocity == 0;
+    status->in_velocity = ax->command_velocity == ax->target_velocity &&
+                          ax->target_velocity != 0;
 }
 
 int mplc_motion_hal_init(uint32_t axis_count)
@@ -78,10 +99,14 @@ void mplc_motion_hal_write_target_position(mplc_axis_ref_t axis, int32_t positio
 
 void mplc_motion_hal_write_command_velocity(mplc_axis_ref_t axis, int32_t velocity)
 {
+    mplc_motion_hal_axis_t *ax;
+
     if (!hal_axis_valid(axis)) {
         return;
     }
-    g_hal_axes[axis].command_velocity = velocity;
+    ax = &g_hal_axes[axis];
+    ax->command_velocity = velocity;
+    ax->stopping = (velocity != 0 && velocity != ax->target_velocity);
 }
 
 bool mplc_motion_hal_read_power_status(mplc_axis_ref_t axis)
@@ -103,6 +128,15 @@ bool mplc_motion_hal_read_error(mplc_axis_ref_t axis, int32_t *error_id)
     return g_hal_axes[axis].error;
 }
 
+int mplc_motion_hal_start_home(mplc_axis_ref_t axis, const mplc_home_request_t *request)
+{
+    if (!hal_axis_valid(axis) || !request) {
+        return -1;
+    }
+    g_hal_axes[axis].target_position = request->position;
+    return 0;
+}
+
 int mplc_motion_hal_start_absolute(mplc_axis_ref_t axis, const mplc_motion_move_t *move)
 {
     if (!hal_axis_valid(axis) || !move) {
@@ -111,6 +145,7 @@ int mplc_motion_hal_start_absolute(mplc_axis_ref_t axis, const mplc_motion_move_
     g_hal_axes[axis].target_position = move->target_position;
     g_hal_axes[axis].target_velocity = move->velocity;
     g_hal_axes[axis].command_velocity = move->velocity;
+    g_hal_axes[axis].stopping = false;
     return 0;
 }
 
@@ -121,23 +156,16 @@ int mplc_motion_hal_start_velocity(mplc_axis_ref_t axis, const mplc_motion_move_
     }
     g_hal_axes[axis].target_velocity = move->velocity;
     g_hal_axes[axis].command_velocity = move->velocity;
+    g_hal_axes[axis].stopping = false;
     return 0;
 }
 
 int mplc_motion_hal_get_status(mplc_axis_ref_t axis, mplc_motion_hal_status_t *status)
 {
-    mplc_motion_hal_axis_t *ax;
-
     if (!hal_axis_valid(axis) || !status) {
         return -1;
     }
-    ax = &g_hal_axes[axis];
-    status->actual_position = ax->actual_position;
-    status->command_velocity = ax->command_velocity;
-    status->error = ax->error;
-    status->error_id = ax->error_id;
-    status->in_velocity = ax->command_velocity == ax->target_velocity &&
-                          ax->target_velocity != 0;
+    hal_fill_status(axis, status);
     return 0;
 }
 
@@ -148,6 +176,7 @@ int mplc_motion_hal_stop(mplc_axis_ref_t axis, int32_t deceleration, bool lock_a
         return -1;
     }
     g_hal_axes[axis].stop_locked = lock_axis;
+    g_hal_axes[axis].stopping = true;
     return 0;
 }
 
@@ -158,6 +187,7 @@ int mplc_motion_hal_halt(mplc_axis_ref_t axis, int32_t deceleration)
         return -1;
     }
     g_hal_axes[axis].stop_locked = false;
+    g_hal_axes[axis].stopping = true;
     return 0;
 }
 
@@ -172,10 +202,22 @@ void mplc_motion_hal_cycle(uint32_t dt_us)
 
     for (axis = 0; axis < g_hal_axis_count; axis++) {
         mplc_motion_hal_axis_t *ax = &g_hal_axes[axis];
+        int32_t remaining;
+
         if (!ax->enabled) {
             continue;
         }
         delta = (int64_t)ax->command_velocity * (int64_t)dt_us / 1000000LL;
         ax->actual_position += (int32_t)delta;
+        remaining = ax->target_position - ax->actual_position;
+        if (ax->command_velocity > 0 && remaining <= 0) {
+            ax->actual_position = ax->target_position;
+            ax->command_velocity = 0;
+            ax->stopping = false;
+        } else if (ax->command_velocity < 0 && remaining >= 0) {
+            ax->actual_position = ax->target_position;
+            ax->command_velocity = 0;
+            ax->stopping = false;
+        }
     }
 }

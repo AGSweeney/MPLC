@@ -127,7 +127,11 @@ mplc_motion_command_id_t mplc_motion_start_halt(
     const mplc_halt_request_t *request,
     mplc_native_fb_t source_fb);
 
-int mplc_motion_release_stop(mplc_axis_ref_t axis);
+int mplc_motion_release_stop(
+    mplc_axis_ref_t axis,
+    mplc_motion_command_id_t owner_command_id);
+
+int mplc_motion_command_ack(mplc_motion_command_id_t command_id);
 
 int mplc_motion_command_status(
     mplc_motion_command_id_t command_id,

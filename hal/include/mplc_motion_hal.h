@@ -26,6 +26,11 @@ typedef struct {
     int32_t actual_position;
     int32_t command_velocity;
     bool    in_velocity;
+    bool    moving;
+    bool    target_reached;
+    bool    stopping;
+    bool    homed;
+    bool    power_enabled;
     bool    error;
     int32_t error_id;
 } mplc_motion_hal_status_t;
@@ -42,6 +47,7 @@ bool mplc_motion_hal_read_power_status(mplc_axis_ref_t axis);
 bool mplc_motion_hal_read_error(mplc_axis_ref_t axis, int32_t *error_id);
 
 /* Command-level interface (preferred for hardware backends). */
+int mplc_motion_hal_start_home(mplc_axis_ref_t axis, const mplc_home_request_t *request);
 int mplc_motion_hal_start_absolute(mplc_axis_ref_t axis, const mplc_motion_move_t *move);
 int mplc_motion_hal_start_velocity(mplc_axis_ref_t axis, const mplc_motion_move_t *move);
 int mplc_motion_hal_get_status(mplc_axis_ref_t axis, mplc_motion_hal_status_t *status);

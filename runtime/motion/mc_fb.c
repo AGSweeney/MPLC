@@ -27,6 +27,9 @@ typedef struct {
     bool                     execute_prev;
     bool                     execute_level;
     mplc_motion_command_id_t command_id;
+    bool                     terminal_latched;
+    bool                     latched_done;
+    bool                     latched_aborted;
     bool                     done;
     bool                     busy;
     bool                     active;
@@ -39,6 +42,7 @@ typedef struct {
     bool                     execute_prev;
     bool                     execute_level;
     mplc_motion_command_id_t command_id;
+    bool                     terminal_latched;
     bool                     in_velocity;
     bool                     busy;
     bool                     active;
@@ -70,13 +74,28 @@ static bool rising_edge(bool signal, bool *prev)
     return edge;
 }
 
-static void update_motion_outputs(
-    mplc_fb_mc_motion_t *fb,
-    mplc_motion_command_id_t command_id)
+static void motion_fb_clear_terminal(mplc_fb_mc_motion_t *fb)
+{
+    fb->terminal_latched = false;
+    fb->latched_done = false;
+    fb->latched_aborted = false;
+    fb->done = false;
+    fb->command_aborted = false;
+}
+
+static void update_motion_outputs(mplc_fb_mc_motion_t *fb)
 {
     mplc_motion_command_status_t status;
 
-    if (command_id == MPLC_MOTION_COMMAND_NONE) {
+    if (fb->terminal_latched) {
+        fb->done = fb->latched_done;
+        fb->command_aborted = fb->latched_aborted;
+        fb->busy = false;
+        fb->active = false;
+        return;
+    }
+
+    if (fb->command_id == MPLC_MOTION_COMMAND_NONE) {
         fb->done = false;
         fb->busy = false;
         fb->active = false;
@@ -84,16 +103,35 @@ static void update_motion_outputs(
         return;
     }
 
-    if (mplc_motion_command_status(command_id, &status) != 0) {
+    if (mplc_motion_command_status(fb->command_id, &status) != 0) {
         return;
     }
 
-    fb->done = status.done;
     fb->busy = status.busy;
     fb->active = status.active;
-    fb->command_aborted = status.command_aborted;
     fb->error = status.error;
     fb->error_id = status.error_id;
+
+    if (status.command_aborted) {
+        fb->terminal_latched = true;
+        fb->latched_done = false;
+        fb->latched_aborted = true;
+        fb->done = false;
+        fb->command_aborted = true;
+        fb->busy = false;
+        fb->active = false;
+        return;
+    }
+
+    if (status.done) {
+        fb->terminal_latched = true;
+        fb->latched_done = true;
+        fb->latched_aborted = false;
+        fb->done = true;
+        fb->command_aborted = false;
+        fb->busy = false;
+        fb->active = false;
+    }
 }
 
 static void mc_power_init(void *inst)
@@ -104,12 +142,10 @@ static void mc_power_init(void *inst)
 static void mc_power_cycle(mplc_vm_t *vm, void *inst, const int32_t *params)
 {
     mplc_fb_mc_power_t *fb = (mplc_fb_mc_power_t *)inst;
-    bool enable = params[0] != 0;
-    mplc_axis_ref_t axis = (mplc_axis_ref_t)params[1];
     mplc_power_status_t status;
     (void)vm;
 
-    if (mplc_motion_power(axis, enable, &status) == 0) {
+    if (mplc_motion_power((mplc_axis_ref_t)params[1], params[0] != 0, &status) == 0) {
         fb->status = status.status;
         fb->valid = status.valid;
         fb->error = status.error;
@@ -125,20 +161,18 @@ static void mc_reset_init(void *inst)
 static void mc_reset_cycle(mplc_vm_t *vm, void *inst, const int32_t *params)
 {
     mplc_fb_mc_reset_t *fb = (mplc_fb_mc_reset_t *)inst;
-    bool execute = rising_edge(params[0] != 0, &fb->execute_prev);
-    mplc_axis_ref_t axis = (mplc_axis_ref_t)params[1];
     mplc_axis_status_t axis_status;
     (void)vm;
 
-    if (execute) {
-        if (mplc_motion_reset_axis(axis) == 0) {
+    if (rising_edge(params[0] != 0, &fb->execute_prev)) {
+        if (mplc_motion_reset_axis((mplc_axis_ref_t)params[1]) == 0) {
             fb->done = true;
         }
     } else {
         fb->done = false;
     }
     fb->busy = false;
-    if (mplc_motion_read_axis_status(axis, true, &axis_status) == 0) {
+    if (mplc_motion_read_axis_status((mplc_axis_ref_t)params[1], true, &axis_status) == 0) {
         fb->error = axis_status.error;
         fb->error_id = axis_status.error_id;
     }
@@ -152,16 +186,19 @@ static void mc_home_init(void *inst)
 static void mc_home_cycle(mplc_vm_t *vm, void *inst, const int32_t *params)
 {
     mplc_fb_mc_motion_t *fb = (mplc_fb_mc_motion_t *)inst;
-    bool execute = params[0] != 0;
-    mplc_axis_ref_t axis = (mplc_axis_ref_t)params[1];
     mplc_home_request_t request;
     (void)vm;
 
-    if (rising_edge(execute, &fb->execute_prev)) {
+    if (rising_edge(params[0] != 0, &fb->execute_prev)) {
+        if (fb->command_id != MPLC_MOTION_COMMAND_NONE) {
+            mplc_motion_command_ack(fb->command_id);
+        }
+        motion_fb_clear_terminal(fb);
         request.position = params[2];
-        fb->command_id = mplc_motion_start_home(axis, &request, MPLC_FB_MC_HOME);
+        fb->command_id = mplc_motion_start_home(
+            (mplc_axis_ref_t)params[1], &request, MPLC_FB_MC_HOME);
     }
-    update_motion_outputs(fb, fb->command_id);
+    update_motion_outputs(fb);
 }
 
 static void mc_move_absolute_init(void *inst)
@@ -176,6 +213,10 @@ static void mc_move_absolute_cycle(mplc_vm_t *vm, void *inst, const int32_t *par
     (void)vm;
 
     if (rising_edge(params[0] != 0, &fb->execute_prev)) {
+        if (fb->command_id != MPLC_MOTION_COMMAND_NONE) {
+            mplc_motion_command_ack(fb->command_id);
+        }
+        motion_fb_clear_terminal(fb);
         request.position = params[2];
         request.velocity = params[3];
         request.acceleration = params[4];
@@ -183,7 +224,7 @@ static void mc_move_absolute_cycle(mplc_vm_t *vm, void *inst, const int32_t *par
         fb->command_id = mplc_motion_start_absolute(
             (mplc_axis_ref_t)params[1], &request, MPLC_FB_MC_MOVE_ABSOLUTE);
     }
-    update_motion_outputs(fb, fb->command_id);
+    update_motion_outputs(fb);
 }
 
 static void mc_move_relative_init(void *inst)
@@ -198,6 +239,10 @@ static void mc_move_relative_cycle(mplc_vm_t *vm, void *inst, const int32_t *par
     (void)vm;
 
     if (rising_edge(params[0] != 0, &fb->execute_prev)) {
+        if (fb->command_id != MPLC_MOTION_COMMAND_NONE) {
+            mplc_motion_command_ack(fb->command_id);
+        }
+        motion_fb_clear_terminal(fb);
         request.distance = params[2];
         request.velocity = params[3];
         request.acceleration = params[4];
@@ -205,7 +250,7 @@ static void mc_move_relative_cycle(mplc_vm_t *vm, void *inst, const int32_t *par
         fb->command_id = mplc_motion_start_relative(
             (mplc_axis_ref_t)params[1], &request, MPLC_FB_MC_MOVE_RELATIVE);
     }
-    update_motion_outputs(fb, fb->command_id);
+    update_motion_outputs(fb);
 }
 
 static void mc_move_velocity_init(void *inst)
@@ -216,21 +261,22 @@ static void mc_move_velocity_init(void *inst)
 static void mc_move_velocity_cycle(mplc_vm_t *vm, void *inst, const int32_t *params)
 {
     mplc_fb_mc_move_velocity_t *fb = (mplc_fb_mc_move_velocity_t *)inst;
-    bool execute = params[0] != 0;
     mplc_move_velocity_request_t request;
     mplc_motion_command_status_t status;
     (void)vm;
 
-    if (execute && !fb->execute_level) {
+    if (params[0] != 0 && !fb->execute_level) {
+        if (fb->command_id != MPLC_MOTION_COMMAND_NONE) {
+            mplc_motion_command_ack(fb->command_id);
+        }
+        fb->terminal_latched = false;
         request.velocity = params[2];
         request.acceleration = params[3];
         request.deceleration = params[4];
         fb->command_id = mplc_motion_start_velocity(
             (mplc_axis_ref_t)params[1], &request, MPLC_FB_MC_MOVE_VELOCITY);
-    } else if (!execute && fb->execute_level) {
-        fb->command_id = MPLC_MOTION_COMMAND_NONE;
     }
-    fb->execute_level = execute;
+    fb->execute_level = params[0] != 0;
 
     if (fb->command_id != MPLC_MOTION_COMMAND_NONE &&
         mplc_motion_command_status(fb->command_id, &status) == 0) {
@@ -256,21 +302,24 @@ static void mc_stop_init(void *inst)
 static void mc_stop_cycle(mplc_vm_t *vm, void *inst, const int32_t *params)
 {
     mplc_fb_mc_motion_t *fb = (mplc_fb_mc_motion_t *)inst;
-    bool execute = params[0] != 0;
-    mplc_axis_ref_t axis = (mplc_axis_ref_t)params[1];
     mplc_stop_request_t request;
+    bool execute = params[0] != 0;
     (void)vm;
 
     if (rising_edge(execute, &fb->execute_prev)) {
+        if (fb->command_id != MPLC_MOTION_COMMAND_NONE) {
+            mplc_motion_command_ack(fb->command_id);
+        }
+        motion_fb_clear_terminal(fb);
         request.deceleration = params[2];
-        fb->command_id = mplc_motion_start_stop(axis, &request, MPLC_FB_MC_STOP);
+        fb->command_id = mplc_motion_start_stop(
+            (mplc_axis_ref_t)params[1], &request, MPLC_FB_MC_STOP);
     }
-    if (!execute && fb->execute_level) {
-        mplc_motion_release_stop(axis);
-        fb->command_id = MPLC_MOTION_COMMAND_NONE;
+    if (!execute && fb->execute_level && fb->command_id != MPLC_MOTION_COMMAND_NONE) {
+        mplc_motion_release_stop((mplc_axis_ref_t)params[1], fb->command_id);
     }
     fb->execute_level = execute;
-    update_motion_outputs(fb, fb->command_id);
+    update_motion_outputs(fb);
 }
 
 static void mc_halt_init(void *inst)
@@ -285,11 +334,15 @@ static void mc_halt_cycle(mplc_vm_t *vm, void *inst, const int32_t *params)
     (void)vm;
 
     if (rising_edge(params[0] != 0, &fb->execute_prev)) {
+        if (fb->command_id != MPLC_MOTION_COMMAND_NONE) {
+            mplc_motion_command_ack(fb->command_id);
+        }
+        motion_fb_clear_terminal(fb);
         request.deceleration = params[2];
         fb->command_id = mplc_motion_start_halt(
             (mplc_axis_ref_t)params[1], &request, MPLC_FB_MC_HALT);
     }
-    update_motion_outputs(fb, fb->command_id);
+    update_motion_outputs(fb);
 }
 
 static void mc_read_actual_position_init(void *inst)
