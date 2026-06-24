@@ -32,6 +32,8 @@ if(MPLC_BUILD_RUNTIME)
     add_subdirectory(platforms/netburner)
 endif()
 
+add_subdirectory(MotionStack)
+
 if(MPLC_BUILD_COMPILER)
     add_subdirectory(compiler)
 endif()

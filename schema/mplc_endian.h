@@ -53,4 +53,24 @@ static inline uint64_t mplc_read_le64(const uint8_t *p)
     return lo | (hi << 32);
 }
 
+static inline void mplc_write_le16(uint8_t *p, uint16_t v)
+{
+    p[0] = (uint8_t)(v & 0xFFU);
+    p[1] = (uint8_t)((v >> 8) & 0xFFU);
+}
+
+static inline void mplc_write_le32(uint8_t *p, uint32_t v)
+{
+    p[0] = (uint8_t)(v & 0xFFU);
+    p[1] = (uint8_t)((v >> 8) & 0xFFU);
+    p[2] = (uint8_t)((v >> 16) & 0xFFU);
+    p[3] = (uint8_t)((v >> 24) & 0xFFU);
+}
+
+static inline void mplc_write_le64(uint8_t *p, uint64_t v)
+{
+    mplc_write_le32(p, (uint32_t)(v & 0xFFFFFFFFU));
+    mplc_write_le32(p + 4, (uint32_t)(v >> 32));
+}
+
 #endif /* MPLC_ENDIAN_H */
