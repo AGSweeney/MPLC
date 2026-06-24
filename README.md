@@ -1,14 +1,30 @@
 # MPLC — Portable IEC 61131 Runtime
 
-MPLC is a host-compiled, bytecode-executed IEC 61131-3 runtime in C, targeting bare-metal microcontrollers and Linux devices. A Qt desktop IDE (**MPLC Studio**) provides edit, compile, deploy, and serial debug for NetBurner MOD54415 targets.
+MPLC is a host-compiled IEC 61131-3 toolchain and fixed-memory bytecode runtime written in C for embedded controllers and Linux targets. The runtime and HAL are portable across platforms; **MPLC Studio** currently provides an integrated edit, compile, deploy, and serial-debug workflow for NetBurner MOD54415 hardware.
 
 ## Features
 
-- **Languages:** ST, IL, LD, FBD, SFC (native parsers + PLCopen XML)
+- **Languages:** ST (working); IL, LD, FBD, SFC (experimental); PLCopen XML body import
 - **Portable VM:** fixed-memory stack machine with native standard FB dispatch
 - **HAL boundary:** GPIO/analog/time/retain abstracted per platform
+- **Motion:** PLCopen-inspired motion runtime with native `MC_*` function blocks and portable hardware backends — see [docs/motion-hal.md](docs/motion-hal.md)
 - **Package format:** versioned `.mplc` binary (no dynamic linking on target)
 - **MPLC Studio:** ST editor, in-process compile, device discovery, HTTP upload/reboot, serial monitor — see [tools/mplc-studio/README.md](tools/mplc-studio/README.md)
+
+## Example (ST)
+
+```st
+VAR
+    Input  AT %IX0.0 : BOOL;
+    Output AT %QX0.0 : BOOL;
+END_VAR
+
+PROGRAM Main
+    Output := Input;
+END_PROGRAM
+```
+
+Compile with `mplc compile program.st -o program.mplc` (see Quick start below).
 
 ## Quick start (toolchain)
 
