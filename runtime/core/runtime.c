@@ -141,7 +141,7 @@ int mplc_runtime_load_package(mplc_runtime_t *rt, const uint8_t *data, size_t si
 
     mplc_io_init(&rt->io_ctx, rt->pkg.io_map, rt->pkg.io_count, rt->data_segment, rt->pkg.data_size);
 
-    if (mplc_motion_init(MPLC_MOTION_MAX_AXES) != 0) {
+    if (mplc_motion_init(0U) != 0) {
         return -5;
     }
 

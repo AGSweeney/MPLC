@@ -6,19 +6,14 @@
 #include "mplc/motion.h"
 #include "mplc/stdlib.h"
 #include <stdio.h>
-#include <string.h>
 
 static int test_axis_power_and_move(void)
 {
-    bool status = false;
-    bool valid = false;
-    bool error = false;
-    bool done = false;
-    bool busy = false;
-    bool active = false;
-    bool command_aborted = false;
-    int32_t error_id = 0;
-    int32_t position = 0;
+    mplc_power_status_t power;
+    mplc_move_absolute_request_t move;
+    mplc_motion_command_status_t cmd_status;
+    mplc_read_position_result_t position;
+    mplc_motion_command_id_t command_id;
     uint32_t cycle;
     const uint32_t dt_us = 10000U;
 
@@ -26,25 +21,30 @@ static int test_axis_power_and_move(void)
         return 1;
     }
 
-    if (mplc_motion_power(0, true, &status, &valid, &error, &error_id) != 0 ||
-        !status || !valid || error) {
+    if (mplc_motion_power(0, true, &power) != 0 || !power.status || !power.valid || power.error) {
         mplc_motion_shutdown();
         return 2;
     }
 
-    if (mplc_motion_move_absolute(0, true, 5000, 100000, 1000, 1000,
-                                  &done, &busy, &active, &command_aborted,
-                                  &error, &error_id) != 0 || error) {
+    move.position = 5000;
+    move.velocity = 100000;
+    move.acceleration = 1000;
+    move.deceleration = 1000;
+    command_id = mplc_motion_start_absolute(0, &move, MPLC_FB_MC_MOVE_ABSOLUTE);
+    if (command_id == MPLC_MOTION_COMMAND_NONE) {
         mplc_motion_shutdown();
         return 3;
     }
 
     for (cycle = 0; cycle < 1000U; cycle++) {
         mplc_motion_cycle(dt_us);
+        if (mplc_motion_command_status(command_id, &cmd_status) == 0 && cmd_status.done) {
+            break;
+        }
     }
 
-    if (mplc_motion_read_actual_position(0, true, &position, &valid, &error, &error_id) != 0 ||
-        error || position != 5000) {
+    if (mplc_motion_read_actual_position(0, true, &position) != 0 ||
+        position.error || position.position != 5000) {
         mplc_motion_shutdown();
         return 4;
     }
@@ -88,6 +88,56 @@ static int test_mc_fb_vtables(void)
     if (mplc_motion_instance_size(MPLC_FB_MC_POWER) == 0U) {
         return 20;
     }
+    if (mplc_motion_instance_size(MPLC_FB_MC_MOVE_VELOCITY) == 0U) {
+        return 21;
+    }
+    return 0;
+}
+
+static int test_stop_locks_axis(void)
+{
+    mplc_power_status_t power;
+    mplc_move_absolute_request_t move;
+    mplc_stop_request_t stop;
+    mplc_axis_status_t axis_status;
+    mplc_motion_command_id_t move_id;
+
+    if (mplc_motion_init(1U) != 0) {
+        return 30;
+    }
+    if (mplc_motion_power(0, true, &power) != 0) {
+        mplc_motion_shutdown();
+        return 31;
+    }
+
+    move.position = 1000;
+    move.velocity = 1000;
+    move.acceleration = 1000;
+    move.deceleration = 1000;
+    move_id = mplc_motion_start_absolute(0, &move, MPLC_FB_MC_MOVE_ABSOLUTE);
+    if (move_id == MPLC_MOTION_COMMAND_NONE) {
+        mplc_motion_shutdown();
+        return 32;
+    }
+
+    stop.deceleration = 1000;
+    if (mplc_motion_start_stop(0, &stop, MPLC_FB_MC_STOP) == MPLC_MOTION_COMMAND_NONE) {
+        mplc_motion_shutdown();
+        return 33;
+    }
+
+    move.position = 2000;
+    if (mplc_motion_start_absolute(0, &move, MPLC_FB_MC_MOVE_ABSOLUTE) != MPLC_MOTION_COMMAND_NONE) {
+        mplc_motion_shutdown();
+        return 34;
+    }
+
+    if (mplc_motion_read_axis_status(0, true, &axis_status) != 0 || !axis_status.stop_locked) {
+        mplc_motion_shutdown();
+        return 35;
+    }
+
+    mplc_motion_shutdown();
     return 0;
 }
 
@@ -104,6 +154,12 @@ int main(void)
     rc = test_axis_power_and_move();
     if (rc != 0) {
         fprintf(stderr, "test_axis_power_and_move failed: %d\n", rc);
+        return rc;
+    }
+
+    rc = test_stop_locks_axis();
+    if (rc != 0) {
+        fprintf(stderr, "test_stop_locks_axis failed: %d\n", rc);
         return rc;
     }
 

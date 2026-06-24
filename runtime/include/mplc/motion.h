@@ -2,9 +2,17 @@
  * Copyright (c) 2026 Adam G. Sweeney <agsweeney@gmail.com>
  * SPDX-License-Identifier: BSD-3-Clause
  *
- * PLCopen Motion Control Part 1 inspired interface.
- * Positions and velocities use fixed-point int32 values scaled by
- * MPLC_MOTION_POSITION_SCALE (default: 1000 = milli-units).
+ * PLCopen Motion Control Part 1 inspired motion engine.
+ *
+ * MC_* function blocks (mc_fb.c) sit above this layer: they detect Execute
+ * edges, submit commands, store command IDs, and map command status to
+ * Busy/Done/Aborted/Error outputs.
+ *
+ * MC_Stop: controlled deceleration while Execute remains TRUE; the axis stays
+ * locked against new motion commands until Execute goes FALSE.
+ *
+ * MC_Halt: controlled deceleration that may be superseded by another valid
+ * motion command; the previous command is reported as CommandAborted.
  */
 
 #ifndef MPLC_MOTION_H
@@ -14,87 +22,126 @@
 #include <stdbool.h>
 #include "mplc_abi.h"
 #include "mplc/stdlib.h"
+#include "mplc_motion_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define MPLC_MOTION_POSITION_SCALE 1000
-#define MPLC_MOTION_MAX_AXES       16U
-
-/* PLCopen-inspired axis group state (Table 21). */
 typedef enum {
-    MPLC_AXIS_GROUP_UNKNOWN          = 0,
-    MPLC_AXIS_GROUP_DISABLED         = 1,
-    MPLC_AXIS_GROUP_STANDSTILL      = 2,
-    MPLC_AXIS_GROUP_HOMING           = 3,
-    MPLC_AXIS_GROUP_STOPPING         = 4,
-    MPLC_AXIS_GROUP_DISCRETE_MOTION  = 5,
-    MPLC_AXIS_GROUP_CONTINUOUS_MOTION = 6,
-    MPLC_AXIS_GROUP_ERRORSTOP        = 7
-} mplc_axis_group_state_t;
-
-/* PLCopen-inspired axis state detail. */
-typedef enum {
-    MPLC_AXIS_STATE_UNKNOWN          = 0,
-    MPLC_AXIS_STATE_DISABLED         = 1,
-    MPLC_AXIS_STATE_STANDSTILL       = 2,
-    MPLC_AXIS_STATE_HOMING           = 3,
-    MPLC_AXIS_STATE_STOPPING         = 4,
-    MPLC_AXIS_STATE_DISCRETE_MOTION  = 5,
+    MPLC_AXIS_STATE_UNKNOWN           = 0,
+    MPLC_AXIS_STATE_DISABLED          = 1,
+    MPLC_AXIS_STATE_STANDSTILL        = 2,
+    MPLC_AXIS_STATE_HOMING            = 3,
+    MPLC_AXIS_STATE_STOPPING          = 4,
+    MPLC_AXIS_STATE_DISCRETE_MOTION   = 5,
     MPLC_AXIS_STATE_CONTINUOUS_MOTION = 6,
-    MPLC_AXIS_STATE_ERRORSTOP        = 7
+    MPLC_AXIS_STATE_ERRORSTOP         = 7
 } mplc_axis_state_t;
 
+typedef enum {
+    MPLC_MOTION_CMD_IDLE    = 0,
+    MPLC_MOTION_CMD_BUSY    = 1,
+    MPLC_MOTION_CMD_DONE    = 2,
+    MPLC_MOTION_CMD_ABORTED = 3,
+    MPLC_MOTION_CMD_ERROR   = 4
+} mplc_motion_command_state_t;
+
 typedef struct {
-    mplc_axis_state_t       axis_state;
-    mplc_axis_group_state_t group_state;
-    bool                    power_enabled;
-    bool                    homed;
-    int32_t                 actual_position;
-    int32_t                 command_position;
-    int32_t                 command_velocity;
-    bool                    error;
-    int32_t                 error_id;
-    bool                    busy;
-    bool                    active;
+    mplc_axis_state_t axis_state;
+    bool              power_enabled;
+    bool              homed;
+    int32_t           actual_position;
+    int32_t           command_position;
+    int32_t           command_velocity;
+    bool              error;
+    int32_t           error_id;
+    bool              busy;
+    bool              active;
+    bool              stop_locked;
 } mplc_axis_status_t;
+
+typedef struct {
+    mplc_motion_command_id_t    command_id;
+    mplc_motion_command_state_t state;
+    mplc_native_fb_t            command_type;
+    bool                        busy;
+    bool                        active;
+    bool                        done;
+    bool                        command_aborted;
+    bool                        in_velocity;
+    bool                        error;
+    int32_t                     error_id;
+} mplc_motion_command_status_t;
+
+typedef struct {
+    bool    status;
+    bool    valid;
+    bool    error;
+    int32_t error_id;
+} mplc_power_status_t;
+
+typedef struct {
+    int32_t position;
+    bool    valid;
+    bool    error;
+    int32_t error_id;
+} mplc_read_position_result_t;
 
 int  mplc_motion_init(uint32_t axis_count);
 void mplc_motion_shutdown(void);
 void mplc_motion_cycle(uint32_t dt_us);
 
-int  mplc_motion_power(uint16_t axis, bool enable, bool *status, bool *valid,
-                       bool *error, int32_t *error_id);
-int  mplc_motion_reset(uint16_t axis, bool execute, bool *done, bool *busy,
-                       bool *error, int32_t *error_id);
-int  mplc_motion_home(uint16_t axis, bool execute, int32_t position,
-                      bool *done, bool *busy, bool *active, bool *command_aborted,
-                      bool *error, int32_t *error_id);
-int  mplc_motion_move_absolute(uint16_t axis, bool execute, int32_t position,
-                               int32_t velocity, int32_t acceleration, int32_t deceleration,
-                               bool *done, bool *busy, bool *active, bool *command_aborted,
-                               bool *error, int32_t *error_id);
-int  mplc_motion_move_relative(uint16_t axis, bool execute, int32_t distance,
-                               int32_t velocity, int32_t acceleration, int32_t deceleration,
-                               bool *done, bool *busy, bool *active, bool *command_aborted,
-                               bool *error, int32_t *error_id);
-int  mplc_motion_move_velocity(uint16_t axis, bool execute, int32_t velocity,
-                               int32_t acceleration, int32_t deceleration,
-                               bool *done, bool *busy, bool *active, bool *command_aborted,
-                               bool *error, int32_t *error_id);
-int  mplc_motion_stop(uint16_t axis, bool execute, int32_t deceleration,
-                      bool *done, bool *busy, bool *active, bool *command_aborted,
-                      bool *error, int32_t *error_id);
-int  mplc_motion_halt(uint16_t axis, bool execute, int32_t deceleration,
-                      bool *done, bool *busy, bool *active, bool *command_aborted,
-                      bool *error, int32_t *error_id);
-int  mplc_motion_read_actual_position(uint16_t axis, bool enable,
-                                      int32_t *position, bool *valid,
-                                      bool *error, int32_t *error_id);
-int  mplc_motion_read_status(uint16_t axis, bool enable,
-                             mplc_axis_status_t *status,
-                             bool *valid, bool *error, int32_t *error_id);
+int  mplc_motion_configure_axis(mplc_axis_ref_t axis, const mplc_axis_config_t *config);
+
+int  mplc_motion_power(mplc_axis_ref_t axis, bool enable, mplc_power_status_t *status);
+int  mplc_motion_reset_axis(mplc_axis_ref_t axis);
+
+mplc_motion_command_id_t mplc_motion_start_home(
+    mplc_axis_ref_t axis,
+    const mplc_home_request_t *request,
+    mplc_native_fb_t source_fb);
+
+mplc_motion_command_id_t mplc_motion_start_absolute(
+    mplc_axis_ref_t axis,
+    const mplc_move_absolute_request_t *request,
+    mplc_native_fb_t source_fb);
+
+mplc_motion_command_id_t mplc_motion_start_relative(
+    mplc_axis_ref_t axis,
+    const mplc_move_relative_request_t *request,
+    mplc_native_fb_t source_fb);
+
+mplc_motion_command_id_t mplc_motion_start_velocity(
+    mplc_axis_ref_t axis,
+    const mplc_move_velocity_request_t *request,
+    mplc_native_fb_t source_fb);
+
+mplc_motion_command_id_t mplc_motion_start_stop(
+    mplc_axis_ref_t axis,
+    const mplc_stop_request_t *request,
+    mplc_native_fb_t source_fb);
+
+mplc_motion_command_id_t mplc_motion_start_halt(
+    mplc_axis_ref_t axis,
+    const mplc_halt_request_t *request,
+    mplc_native_fb_t source_fb);
+
+int mplc_motion_release_stop(mplc_axis_ref_t axis);
+
+int mplc_motion_command_status(
+    mplc_motion_command_id_t command_id,
+    mplc_motion_command_status_t *status);
+
+int mplc_motion_read_actual_position(
+    mplc_axis_ref_t axis,
+    bool enable,
+    mplc_read_position_result_t *result);
+
+int mplc_motion_read_axis_status(
+    mplc_axis_ref_t axis,
+    bool enable,
+    mplc_axis_status_t *status);
 
 const mplc_fb_vtable_t *mplc_motion_get_vtable(mplc_native_fb_t type);
 uint32_t mplc_motion_instance_size(mplc_native_fb_t type);
