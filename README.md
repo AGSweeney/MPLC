@@ -48,8 +48,6 @@ ST sources may use `//`, `(* *)`, and `#` line comments (same as the embedded St
 
 ## MPLC Studio (NetBurner workflow)
 
-![MPLC Studio — Structured Text](docs/MPLC_Studio.png)
-
 ![MPLC Studio — Ladder Diagram](docs/MPLC_Studio_Ladder.png)
 
 The **ladder editor is in early development** — the UI, branch model, and LD compiler path are functional but still evolving; expect rough edges compared to Structured Text.
