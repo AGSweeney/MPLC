@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types><dataTypes/><pous/></types>
+  <instances><configurations/></instances>
+  <contentHeader name="SampleLD"/>
+  <body>
+    <LD>
+      <leftPowerRail>
+        <connectionPointOut/>
+      </leftPowerRail>
+      <varDeclaration name="Input" type="BOOL"/>
+      <varDeclaration name="Output" type="BOOL"/>
+      <rung localId="1">
+        <contact localId="1" variable="Input" row="0" col="1"/>
+        <coil localId="2" variable="Output" row="0" col="2"/>
+        <connection fromLocalId="1" toLocalId="2"/>
+      </rung>
+    </LD>
+  </body>
+</project>

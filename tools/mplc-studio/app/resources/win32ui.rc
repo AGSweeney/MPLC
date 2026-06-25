@@ -8,8 +8,8 @@
 IDI_APP_ICON ICON "icons/win32ui.ico"
 
 1 VERSIONINFO
-FILEVERSION 1,0,0,0
-PRODUCTVERSION 1,0,0,0
+FILEVERSION 0,1,1,0
+PRODUCTVERSION 0,1,1,0
 FILEFLAGSMASK 0x3fL
 FILEFLAGS 0x0L
 FILEOS 0x40004L
@@ -22,12 +22,12 @@ BEGIN
         BEGIN
             VALUE "CompanyName", "MPLC"
             VALUE "FileDescription", "MPLC Studio"
-            VALUE "FileVersion", "1.0.0.0"
+            VALUE "FileVersion", "0.1.1.0"
             VALUE "InternalName", "MPLCStudio"
             VALUE "LegalCopyright", "Copyright (C) MPLC. All rights reserved."
             VALUE "OriginalFilename", "MPLCStudio.exe"
             VALUE "ProductName", "MPLC Studio"
-            VALUE "ProductVersion", "1.0.0.0"
+            VALUE "ProductVersion", "0.1.1.0"
         END
     END
     BLOCK "VarFileInfo"

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types><dataTypes/><pous/></types>
+  <instances><configurations/></instances>
+  <contentHeader name="SampleLDTon5s"/>
+  <body>
+    <LD>
+      <leftPowerRail>
+        <connectionPointOut/>
+      </leftPowerRail>
+      <varDeclaration name="Input" type="BOOL" address="%IX0.0"/>
+      <varDeclaration name="Output" type="BOOL" address="%QX0.0"/>
+      <rung localId="1">
+        <contact localId="1" variable="Input" row="0" col="1"/>
+        <block typeName="TON" localId="2" row="0" col="2">
+          <variable formalParameter="PT" literal="T#5s"/>
+        </block>
+        <coil localId="3" variable="Output" row="0" col="3"/>
+        <connection fromLocalId="1" toLocalId="2"/>
+        <connection fromLocalId="2" toLocalId="3"/>
+      </rung>
+    </LD>
+  </body>
+</project>

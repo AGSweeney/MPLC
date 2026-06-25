@@ -5,6 +5,7 @@
 
 #include "mplc/vm.h"
 #include "mplc/stdlib.h"
+#include "mplc/stdlib.h"
 #include "mplc_endian.h"
 #include <stdlib.h>
 #include <string.h>
@@ -181,7 +182,11 @@ static int exec_native_fb(mplc_vm_t *vm, uint16_t fb_type, int32_t instance_offs
         param_count = 8;
     }
     for (i = param_count - 1; i >= 0; i--) {
-        params[i] = pop_i32(vm);
+        if (mplc_stdlib_param_is_bool((mplc_native_fb_t)fb_type, i)) {
+            params[i] = pop_bool(vm) ? 1 : 0;
+        } else {
+            params[i] = pop_i32(vm);
+        }
     }
     vt->cycle(vm, inst, params);
     return 0;
@@ -438,6 +443,19 @@ int mplc_vm_run_pou(mplc_vm_t *vm, uint16_t pou_id, uint32_t code_offset, uint32
             if (exec_native_fb(vm, fb_type, inst_off, param_count) != 0) {
                 return -3;
             }
+            break;
+        }
+        case MPLC_OP_READ_FB_BOOL: {
+            uint16_t fb_type = read_u16_pc(&pc);
+            int32_t inst_off = read_i32_pc(&pc);
+            uint8_t out_idx = *pc++;
+            uint32_t field_off = mplc_fb_bool_output_offset((mplc_native_fb_t)fb_type, out_idx);
+            bool val = false;
+            if (vm->cfg.fb_arena && inst_off >= 0 &&
+                (uint32_t)inst_off + field_off < vm->cfg.fb_arena_size) {
+                val = vm->cfg.fb_arena[inst_off + field_off] != 0U;
+            }
+            push_bool(vm, val);
             break;
         }
         case MPLC_OP_RET:

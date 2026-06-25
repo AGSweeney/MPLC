@@ -69,9 +69,18 @@ build/mplc_linux program.mplc 100   # Linux only
 Qt6 desktop app at `tools/mplc-studio/`:
 
 - Embeds the same `compiler/` sources as `mplc.exe` (via `mplc_compiler` static library)
-- Writes `<source>.mplc` next to the ST file on compile
+- Structured Text editor with syntax highlighting and instruction toolbox
+- Ladder Diagram editor (**early development** — Qt Graphics View) with PLCopen XML persistence, variable table, and LD compiler integration
+
+![MPLC Studio — Ladder Diagram](MPLC_Studio_Ladder.png)
+
+Ladder support is **in early development**: the Studio editor (`tools/mplc-studio/app/src/ladder/`) and `compiler/frontend/ld/` can compile typical rungs, but branch nesting, layout edge cases, and language coverage are still being hardened. ST remains the recommended path for production use.
+
+Ladder sources use a column-grid model and scene graph: elements snap to rung rows; input branches are OR regions (fork/join columns, optional nesting); output branches fork parallel coil legs. XML round-trips through `LadderPlcopenSerializer`; `ld_parser.c` in `compiler/frontend/ld/` lowers rungs to IR for codegen. ST export (`LadderStExporter`) is available for review but compile goes directly from ladder XML when you **Compile** a `.xml` project.
+
+- Writes `<source>.mplc` next to the source file on compile
 - HTTP upload/reboot to NetBurner firmware (`mplc_upload.html`, `mplc_reboot.html`)
-- UDP device discovery, serial monitor (Qt SerialPort), ST instruction toolbox
+- UDP device discovery, serial monitor (Qt SerialPort)
 
 Windows installer: `tools/mplc-studio/scripts/build-mplc-studio-installer.ps1` (Inno Setup 6).
 

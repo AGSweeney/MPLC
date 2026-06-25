@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <types><dataTypes/><pous/></types>
+  <instances><configurations/></instances>
+  <contentHeader name="SampleLDLed8"/>
+  <body>
+    <LD>
+      <leftPowerRail>
+        <connectionPointOut/>
+      </leftPowerRail>
+      <varDeclaration name="Dip1" type="BOOL" address="%IX0.0"/>
+      <varDeclaration name="Led1" type="BOOL" address="%QX0.0"/>
+      <varDeclaration name="Dip2" type="BOOL" address="%IX0.1"/>
+      <varDeclaration name="Led2" type="BOOL" address="%QX0.1"/>
+      <varDeclaration name="Dip3" type="BOOL" address="%IX0.2"/>
+      <varDeclaration name="Led3" type="BOOL" address="%QX0.2"/>
+      <varDeclaration name="Dip4" type="BOOL" address="%IX0.3"/>
+      <varDeclaration name="Led4" type="BOOL" address="%QX0.3"/>
+      <varDeclaration name="Dip5" type="BOOL" address="%IX0.4"/>
+      <varDeclaration name="Led5" type="BOOL" address="%QX0.4"/>
+      <varDeclaration name="Dip6" type="BOOL" address="%IX0.5"/>
+      <varDeclaration name="Led6" type="BOOL" address="%QX0.5"/>
+      <varDeclaration name="Dip7" type="BOOL" address="%IX0.6"/>
+      <varDeclaration name="Led7" type="BOOL" address="%QX0.6"/>
+      <varDeclaration name="Dip8" type="BOOL" address="%IX0.7"/>
+      <varDeclaration name="Led8" type="BOOL" address="%QX0.7"/>
+      <rung localId="1">
+        <contact localId="1" variable="Dip8" row="0" col="1"/>
+        <coil localId="2" variable="Led8" row="0" col="2"/>
+        <connection fromLocalId="1" toLocalId="2"/>
+      </rung>
+    </LD>
+  </body>
+</project>

@@ -4,6 +4,7 @@
 # CMake / MSVC build trees
 build/
 build_local/
+build_test/
 build_studio/
 tools/mplc-studio/build/
 

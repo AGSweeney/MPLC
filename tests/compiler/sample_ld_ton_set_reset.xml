@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://www.plcopen.org/xml/tc6_0200">
+  <contentHeader name="TonSetReset"/>
+  <body>
+    <LD>
+      <varDeclaration name="Dip1" type="BOOL" address="%IX0.0"/>
+      <varDeclaration name="Dip2" type="BOOL" address="%IX0.1"/>
+      <varDeclaration name="Led1" type="BOOL" address="%QX0.0"/>
+      <rung localId="1">
+        <contact localId="2" variable="Dip1" row="0" col="1"/>
+        <contact localId="7" variable="Dip2" negated="true" row="0" col="2"/>
+        <block typeName="TON" localId="9" row="0" col="3">
+          <variable formalParameter="PT" literal="T#2s"/>
+        </block>
+        <coil localId="3" variable="Led1" coilAction="set" row="0" col="10"/>
+        <connection fromLocalId="2" toLocalId="7"/>
+        <connection fromLocalId="7" toLocalId="9"/>
+        <connection fromLocalId="9" toLocalId="3"/>
+      </rung>
+      <rung localId="4">
+        <contact localId="5" variable="Dip2" row="0" col="1"/>
+        <contact localId="8" variable="Dip1" negated="true" row="0" col="2"/>
+        <block typeName="TON" localId="10" row="0" col="3">
+          <variable formalParameter="PT" literal="T#2s"/>
+        </block>
+        <coil localId="6" variable="Led1" coilAction="reset" row="0" col="10"/>
+        <connection fromLocalId="5" toLocalId="8"/>
+        <connection fromLocalId="8" toLocalId="10"/>
+        <connection fromLocalId="10" toLocalId="6"/>
+      </rung>
+    </LD>
+  </body>
+</project>

@@ -9,7 +9,7 @@ MPLC is a host-compiled IEC 61131-3 toolchain and fixed-memory bytecode runtime 
 - **HAL boundary:** GPIO/analog/time/retain abstracted per platform
 - **Motion:** PLCopen-inspired motion runtime with native `MC_*` function blocks and portable hardware backends — see [docs/motion-hal.md](docs/motion-hal.md)
 - **Package format:** versioned `.mplc` binary (no dynamic linking on target)
-- **MPLC Studio:** ST editor, in-process compile, device discovery, HTTP upload/reboot, serial monitor — see [tools/mplc-studio/README.md](tools/mplc-studio/README.md)
+- **MPLC Studio:** ST editor; Ladder Diagram editor (**early development**); in-process compile, device discovery, HTTP upload/reboot, serial monitor — see [tools/mplc-studio/README.md](tools/mplc-studio/README.md)
 
 ## Example (ST)
 
@@ -48,7 +48,13 @@ ST sources may use `//`, `(* *)`, and `#` line comments (same as the embedded St
 
 ## MPLC Studio (NetBurner workflow)
 
-![MPLC Studio](docs/MPLC_Studio.png)
+![MPLC Studio — Structured Text](docs/MPLC_Studio.png)
+
+![MPLC Studio — Ladder Diagram](docs/MPLC_Studio_Ladder.png)
+
+The **ladder editor is in early development** — the UI, branch model, and LD compiler path are functional but still evolving; expect rough edges compared to Structured Text.
+
+The ladder editor (`tools/mplc-studio/app/src/ladder/`) is a grid-based Qt Graphics View canvas: rungs hold contacts, coils, and function blocks; **Surround with Branch** / **+ Leg** build nested input OR branches; output branches fork parallel coils (with optional instructions before each coil). Programs persist as PLCopen TC6 XML (`.xml`) and compile through the LD frontend (`compiler/frontend/ld/`) into the same `.mplc` bytecode as ST. **View Generated ST** exports ladder logic for inspection.
 
 ```powershell
 # Build the IDE
@@ -59,7 +65,7 @@ cd tools\mplc-studio
 .\scripts\build-mplc-studio-installer.ps1 -QtDir "C:\Qt\6.8.3\msvc2022_64"
 ```
 
-Output: `tools/mplc-studio/build/app/MPLCStudio.exe` or `tools/mplc-studio/dist/MPLCStudio-0.1.0-Setup.exe`
+Output: `tools/mplc-studio/build/app/MPLCStudio.exe` or `tools/mplc-studio/dist/MPLCStudio-0.1.1-Setup.exe`
 
 Typical loop: edit `.st` → **Compile** (writes `<source>.mplc` beside the file) → **Upload** → **Reboot** → watch boot logs on the **Serial Monitor** tab (115200, DTR/RTS on).
 

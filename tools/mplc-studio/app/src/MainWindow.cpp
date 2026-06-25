@@ -5,8 +5,6 @@
 
 #include "MainWindow.h"
 #include "SerialMonitorWidget.h"
-#include "StInstructionToolbox.h"
-#include "StSyntaxHighlighter.h"
 
 #include <QAction>
 #include <QCloseEvent>
@@ -28,6 +26,20 @@
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QVBoxLayout>
+
+namespace {
+
+bool isLadderProjectPath(const QString &path)
+{
+    return QFileInfo(path).suffix().compare(QStringLiteral("xml"), Qt::CaseInsensitive) == 0;
+}
+
+QString combinedOpenFilter()
+{
+    return QStringLiteral("All Supported (*.st *.xml);;Structured Text (*.st);;Ladder Project (*.xml);;All Files (*)");
+}
+
+} // namespace
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -68,23 +80,33 @@ MainWindow::MainWindow(QWidget *parent)
     });
     connect(&m_discovery, &DeviceDiscoveryService::logMessage, this, &MainWindow::appendLog);
     connect(m_serialMonitor, &SerialMonitorWidget::statusMessage, this, &MainWindow::appendLog);
+
+    connect(&m_compiler, &CompilerService::compileStarted, this, [this]() {
+        setBackgroundTaskUiEnabled(false);
+        if (m_statusLabel != nullptr) {
+            m_statusLabel->setText(QStringLiteral("Compiling..."));
+        }
+    });
+    connect(&m_compiler, &CompilerService::compileFinished, this, &MainWindow::handleCompileFinished);
+
+    connect(&m_stImport, &StImportService::importStarted, this, [this]() {
+        setBackgroundTaskUiEnabled(false);
+        if (m_statusLabel != nullptr) {
+            m_statusLabel->setText(QStringLiteral("Importing ST..."));
+        }
+    });
+    connect(&m_stImport, &StImportService::importFinished, this, &MainWindow::handleStImportFinished);
 }
 
 void MainWindow::createActions()
 {
-    m_newAction = new QAction("New", this);
+    m_newAction = new QAction("New ST", this);
     m_newAction->setShortcut(QKeySequence::New);
-    connect(m_newAction, &QAction::triggered, this, [this]() {
-        if (!maybeSave()) {
-            return;
-        }
-        m_editor->clear();
-        m_currentFile.clear();
-        m_lastPackagePath.clear();
-        m_dirty = false;
-        updateWindowTitle();
-        appendLog("New ST document.");
-    });
+    connect(m_newAction, &QAction::triggered, this, &MainWindow::newStructuredTextDocument);
+
+    m_newLadderAction = new QAction("New Ladder", this);
+    m_newLadderAction->setShortcut(Qt::CTRL | Qt::SHIFT | Qt::Key_N);
+    connect(m_newLadderAction, &QAction::triggered, this, &MainWindow::newLadderDocument);
 
     m_openAction = new QAction("Open...", this);
     m_openAction->setShortcut(QKeySequence::Open);
@@ -94,9 +116,9 @@ void MainWindow::createActions()
         }
         const QString path = QFileDialog::getOpenFileName(
             this,
-            "Open Structured Text",
+            "Open Project",
             m_currentFile.isEmpty() ? QString() : QFileInfo(m_currentFile).absolutePath(),
-            "Structured Text (*.st);;All Files (*)");
+            combinedOpenFilter());
         if (!path.isEmpty()) {
             openFilePath(path);
         }
@@ -111,11 +133,14 @@ void MainWindow::createActions()
     m_saveAsAction = new QAction("Save As...", this);
     m_saveAsAction->setShortcut(QKeySequence::SaveAs);
     connect(m_saveAsAction, &QAction::triggered, this, [this]() {
+        if (m_activeEditor == nullptr) {
+            return;
+        }
         const QString path = QFileDialog::getSaveFileName(
             this,
-            "Save Structured Text",
+            "Save Project",
             m_currentFile.isEmpty() ? "program.st" : m_currentFile,
-            "Structured Text (*.st)");
+            m_activeEditor->suggestedSaveFilter() + ";;All Files (*)");
         if (!path.isEmpty()) {
             setCurrentFile(path);
             saveCurrentFile();
@@ -158,6 +183,31 @@ void MainWindow::createActions()
     m_clearLogAction->setShortcut(Qt::CTRL | Qt::Key_L);
     connect(m_clearLogAction, &QAction::triggered, this, &MainWindow::clearOutputLog);
 
+    m_addRungAction = new QAction("Add Rung", this);
+    connect(m_addRungAction, &QAction::triggered, this, [this]() {
+        if (m_ladderEditor != nullptr && m_ladderEditor->scene() != nullptr) {
+            m_ladderEditor->scene()->addRung();
+        }
+    });
+
+    m_addContactAction = new QAction("Add Contact", this);
+    connect(m_addContactAction, &QAction::triggered, this, [this]() {
+        if (m_ladderEditor != nullptr && m_ladderEditor->scene() != nullptr) {
+            m_ladderEditor->scene()->addContactToSelectedRung(false);
+        }
+    });
+
+    m_viewGeneratedStAction = new QAction("View Generated ST", this);
+    connect(m_viewGeneratedStAction, &QAction::triggered, this, [this]() {
+        if (m_ladderEditor != nullptr) {
+            m_ladderEditor->showGeneratedSt();
+        }
+    });
+
+    m_importStToLadderAction = new QAction("Import ST to Ladder...", this);
+    m_importStToLadderAction->setShortcut(Qt::CTRL | Qt::SHIFT | Qt::Key_I);
+    connect(m_importStToLadderAction, &QAction::triggered, this, &MainWindow::importStToLadder);
+
     m_quitAction = new QAction("Quit", this);
     m_quitAction->setShortcut(QKeySequence::Quit);
     connect(m_quitAction, &QAction::triggered, this, [this]() {
@@ -186,12 +236,31 @@ void MainWindow::createUi()
     m_passwordEdit->setEchoMode(QLineEdit::Password);
     m_passwordEdit->setMaximumWidth(140);
 
-    m_editor = new QPlainTextEdit(central);
-    m_editor->setObjectName("CodeEditor");
-    m_editor->setPlaceholderText("Write Structured Text here...");
-    m_editor->setTabStopDistance(48);
-    m_editor->setFont(QFont(QStringLiteral("Consolas"), 13));
-    new StSyntaxHighlighter(m_editor->document());
+    m_stEditor = new StTextEditor(central);
+    m_ladderEditor = new LadderEditorWidget(central);
+    m_ladderPropertiesPanel = m_ladderEditor->propertiesPanel();
+    m_ladderToolbox = new LadderToolbox(central);
+    m_ladderToolbox->setScene(m_ladderEditor->scene());
+
+    m_ladderSidePanel = new QWidget(central);
+    auto *ladderSideLayout = new QVBoxLayout(m_ladderSidePanel);
+    ladderSideLayout->setContentsMargins(0, 0, 0, 0);
+    ladderSideLayout->setSpacing(0);
+    ladderSideLayout->addWidget(m_ladderToolbox, 1);
+    ladderSideLayout->addWidget(m_ladderPropertiesPanel, 0);
+    m_ladderPropertiesPanel->setMaximumWidth(QWIDGETSIZE_MAX);
+
+    m_editorStack = new QStackedWidget(central);
+    m_editorStack->addWidget(m_stEditor);
+    m_editorStack->addWidget(m_ladderEditor);
+
+    m_activeEditor = m_stEditor;
+    m_editorStack->setCurrentWidget(m_stEditor);
+
+    connect(m_stEditor, &DocumentEditor::dirtyChanged, this, &MainWindow::onEditorDirtyChanged);
+    connect(m_ladderEditor, &DocumentEditor::dirtyChanged, this, &MainWindow::onEditorDirtyChanged);
+    connect(m_stEditor, &DocumentEditor::statusMessage, this, &MainWindow::appendLog);
+    connect(m_ladderEditor, &DocumentEditor::statusMessage, this, &MainWindow::appendLog);
 
     m_log = new QPlainTextEdit(central);
     m_log->setReadOnly(true);
@@ -244,7 +313,7 @@ void MainWindow::createUi()
     endpointRow->addStretch(1);
 
     editorPaneLayout->addLayout(endpointRow);
-    editorPaneLayout->addWidget(m_editor, 1);
+    editorPaneLayout->addWidget(m_editorStack, 1);
 
     auto *logToggleBar = new QWidget(central);
     logToggleBar->setObjectName("LogToggleBar");
@@ -305,17 +374,35 @@ void MainWindow::createUi()
     leftLayout->addWidget(contentSplitter, 1);
     leftLayout->addWidget(logToggleBar);
 
-    m_toolbox = new StInstructionToolbox(m_editor, central);
+    m_stToolbox = new StInstructionToolbox(m_stEditor->editor(), central);
+
+    m_sidePanelStack = new QStackedWidget(central);
+    m_sidePanelStack->addWidget(m_stToolbox);
+    m_sidePanelStack->addWidget(m_ladderSidePanel);
+    m_sidePanelStack->setCurrentWidget(m_stToolbox);
+
     m_workSplitter = new QSplitter(Qt::Horizontal, central);
     m_workSplitter->addWidget(leftColumn);
-    m_workSplitter->addWidget(m_toolbox);
+    m_workSplitter->addWidget(m_sidePanelStack);
     m_workSplitter->setStretchFactor(0, 1);
     m_workSplitter->setStretchFactor(1, 0);
     m_workSplitter->setCollapsible(1, true);
     m_workSplitter->setSizes({860, 240});
 
     auto *savedToolboxWidth = new int(240);
-    connect(m_toolbox, &StInstructionToolbox::expandedChanged, this, [this, savedToolboxWidth](bool expanded) {
+    connect(m_stToolbox, &StInstructionToolbox::expandedChanged, this, [this, savedToolboxWidth](bool expanded) {
+        const QList<int> sizes = m_workSplitter->sizes();
+        if (expanded) {
+            const int restore = (*savedToolboxWidth > 80) ? *savedToolboxWidth : 240;
+            const int total = sizes[0] + sizes[1];
+            m_workSplitter->setSizes({total - restore, restore});
+        } else {
+            *savedToolboxWidth = sizes[1];
+            m_workSplitter->setSizes({sizes[0] + sizes[1], 24});
+        }
+    });
+    connect(m_ladderToolbox, &LadderToolbox::expandedChanged, this, [this, savedToolboxWidth](bool expanded) {
+        applyLadderSidePanelLayout(expanded);
         const QList<int> sizes = m_workSplitter->sizes();
         if (expanded) {
             const int restore = (*savedToolboxWidth > 80) ? *savedToolboxWidth : 240;
@@ -335,13 +422,6 @@ void MainWindow::createUi()
     m_statusLabel->setObjectName("StatusLabel");
     m_statusLabel->setAutoFillBackground(false);
     statusBar()->addPermanentWidget(m_statusLabel);
-
-    connect(m_editor, &QPlainTextEdit::textChanged, this, [this]() {
-        if (!m_dirty) {
-            m_dirty = true;
-            updateWindowTitle();
-        }
-    });
 }
 
 void MainWindow::createRibbon()
@@ -351,24 +431,32 @@ void MainWindow::createRibbon()
 
     const QColor ribbonIconColor("#1a1a1a");
 
-    m_newButton = makeRibbonCommandButton("New", ":/icons/star-plus.svg", this, ribbonIconColor);
+    m_newButton = makeRibbonCommandButton("New ST", ":/icons/star-plus.svg", this, ribbonIconColor);
+    m_newLadderButton = makeRibbonCommandButton("New Ladder", ":/icons/star-plus.svg", this, ribbonIconColor);
     m_openButton = makeRibbonCommandButton("Open", ":/icons/list.svg", this, ribbonIconColor);
     m_saveButton = makeRibbonCommandButton("Save", ":/icons/chevron-up.svg", this, ribbonIconColor);
     m_compileButton = makeRibbonCommandButton("Compile", ":/icons/list.svg", this, ribbonIconColor);
     m_discoverButton = makeRibbonCommandButton("Discover", ":/icons/search.svg", this, ribbonIconColor);
     m_uploadButton = makeRibbonCommandButton("Upload", ":/icons/link.svg", this, ribbonIconColor);
     m_rebootButton = makeRibbonCommandButton("Reboot", ":/icons/unlink.svg", this, ribbonIconColor);
+    m_addRungButton = makeRibbonCommandButton("Add Rung", ":/icons/chevron-down.svg", this, ribbonIconColor);
+    m_addContactButton = makeRibbonCommandButton("Add Contact", ":/icons/chevron-right.svg", this, ribbonIconColor);
+    m_importStToLadderButton = makeRibbonCommandButton("ST to Ladder", ":/icons/link.svg", this, ribbonIconColor);
 
     auto *helpButton = makeRibbonCommandButton("About", ":/icons/app-icon-64.png", this, ribbonIconColor);
     helpButton->setToolTip("About MPLC Studio");
 
     connect(m_newButton, &QToolButton::clicked, m_newAction, &QAction::trigger);
+    connect(m_newLadderButton, &QToolButton::clicked, m_newLadderAction, &QAction::trigger);
     connect(m_openButton, &QToolButton::clicked, m_openAction, &QAction::trigger);
     connect(m_saveButton, &QToolButton::clicked, m_saveAction, &QAction::trigger);
     connect(m_compileButton, &QToolButton::clicked, m_compileAction, &QAction::trigger);
     connect(m_discoverButton, &QToolButton::clicked, m_discoverAction, &QAction::trigger);
     connect(m_uploadButton, &QToolButton::clicked, m_uploadAction, &QAction::trigger);
     connect(m_rebootButton, &QToolButton::clicked, m_rebootAction, &QAction::trigger);
+    connect(m_addRungButton, &QToolButton::clicked, m_addRungAction, &QAction::trigger);
+    connect(m_addContactButton, &QToolButton::clicked, m_addContactAction, &QAction::trigger);
+    connect(m_importStToLadderButton, &QToolButton::clicked, m_importStToLadderAction, &QAction::trigger);
     connect(helpButton, &QToolButton::clicked, this, &MainWindow::showHelpDialog);
 
     auto *acadRibbon = new QWidget(this);
@@ -395,11 +483,16 @@ void MainWindow::createRibbon()
 
     auto *appMenu = new QMenu(appMenuButton);
     appMenu->addAction(m_newAction);
+    appMenu->addAction(m_newLadderAction);
     appMenu->addAction(m_openAction);
+    appMenu->addAction(m_importStToLadderAction);
     appMenu->addAction(m_saveAction);
     appMenu->addAction(m_saveAsAction);
     appMenu->addSeparator();
     appMenu->addAction(m_compileAction);
+    appMenu->addAction(m_addRungAction);
+    appMenu->addAction(m_addContactAction);
+    appMenu->addAction(m_viewGeneratedStAction);
     appMenu->addAction(m_discoverAction);
     appMenu->addAction(m_uploadAction);
     appMenu->addAction(m_rebootAction);
@@ -431,8 +524,14 @@ void MainWindow::createRibbon()
 
     const RibbonGroup fileGroup = makeRibbonGroup(homePage, "File");
     fileGroup.commands->addWidget(m_newButton);
+    fileGroup.commands->addWidget(m_newLadderButton);
     fileGroup.commands->addWidget(m_openButton);
+    fileGroup.commands->addWidget(m_importStToLadderButton);
     fileGroup.commands->addWidget(m_saveButton);
+
+    const RibbonGroup ladderGroup = makeRibbonGroup(homePage, "Ladder");
+    ladderGroup.commands->addWidget(m_addRungButton);
+    ladderGroup.commands->addWidget(m_addContactButton);
 
     const RibbonGroup findGroup = makeRibbonGroup(homePage, "Find");
     findGroup.commands->addWidget(m_discoverButton);
@@ -443,6 +542,7 @@ void MainWindow::createRibbon()
     deviceGroup.commands->addWidget(m_rebootButton);
 
     homeLayout->addWidget(fileGroup.widget);
+    homeLayout->addWidget(ladderGroup.widget);
     homeLayout->addWidget(findGroup.widget);
     homeLayout->addWidget(deviceGroup.widget);
     homeLayout->addStretch(1);
@@ -488,6 +588,9 @@ void MainWindow::refreshRibbonIcons()
     if (m_newButton != nullptr) {
         m_newButton->setIcon(StudioTheme::renderSvgIcon(":/icons/star-plus.svg", edge, iconColor));
     }
+    if (m_newLadderButton != nullptr) {
+        m_newLadderButton->setIcon(StudioTheme::renderSvgIcon(":/icons/star-plus.svg", edge, iconColor));
+    }
     if (m_openButton != nullptr) {
         m_openButton->setIcon(StudioTheme::renderSvgIcon(":/icons/list.svg", edge, iconColor));
     }
@@ -506,6 +609,15 @@ void MainWindow::refreshRibbonIcons()
     if (m_rebootButton != nullptr) {
         m_rebootButton->setIcon(StudioTheme::renderSvgIcon(":/icons/unlink.svg", edge, iconColor));
     }
+    if (m_addRungButton != nullptr) {
+        m_addRungButton->setIcon(StudioTheme::renderSvgIcon(":/icons/chevron-down.svg", edge, iconColor));
+    }
+    if (m_addContactButton != nullptr) {
+        m_addContactButton->setIcon(StudioTheme::renderSvgIcon(":/icons/chevron-right.svg", edge, iconColor));
+    }
+    if (m_importStToLadderButton != nullptr) {
+        m_importStToLadderButton->setIcon(StudioTheme::renderSvgIcon(":/icons/link.svg", edge, iconColor));
+    }
 }
 
 void MainWindow::showHelpDialog()
@@ -515,8 +627,8 @@ void MainWindow::showHelpDialog()
     box.setIconPixmap(QPixmap(":/icons/app-icon-256.png").scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation));
     box.setText("<b>MPLC Studio</b>");
     box.setInformativeText(
-        "Edit Structured Text, compile in-process to .mplc packages, deploy to NetBurner MOD54415 targets, "
-        "and monitor the target UART from the Serial Monitor tab.");
+        "Edit Structured Text and Ladder Diagram projects, compile in-process to .mplc packages, "
+        "deploy to NetBurner MOD54415 targets, and monitor the target UART from the Serial Monitor tab.");
     styleMessageBox(box);
     box.exec();
 }
@@ -564,27 +676,14 @@ void MainWindow::loadSettings()
     m_device.setDeviceHost(m_deviceHostEdit->text().trimmed());
     m_device.setCredentials(m_userEdit->text(), m_passwordEdit->text());
 
-    if (m_toolbox != nullptr) {
+    if (m_stToolbox != nullptr) {
         const bool toolboxExpanded = settings.value("ui/toolboxExpanded", true).toBool();
         if (!toolboxExpanded) {
-            m_toolbox->setExpanded(false);
+            m_stToolbox->setExpanded(false);
         }
     }
 
-    const QString lastFile = settings.value("editor/lastFile").toString();
-    if (!lastFile.isEmpty() && QFileInfo::exists(lastFile)) {
-        openFilePath(lastFile);
-    } else {
-        m_editor->setPlainText(
-            "PROGRAM Main\n"
-            "VAR\n"
-            "    Led1 AT %QX0.0 : BOOL;\n"
-            "END_VAR\n"
-            "    Led1 := TRUE;\n"
-            "END_PROGRAM\n");
-        m_dirty = true;
-        updateWindowTitle();
-    }
+    newLadderDocument();
 }
 
 void MainWindow::saveSettings()
@@ -596,8 +695,8 @@ void MainWindow::saveSettings()
     if (!m_currentFile.isEmpty()) {
         settings.setValue("editor/lastFile", m_currentFile);
     }
-    if (m_toolbox != nullptr) {
-        settings.setValue("ui/toolboxExpanded", m_toolbox->isExpanded());
+    if (m_stToolbox != nullptr) {
+        settings.setValue("ui/toolboxExpanded", m_stToolbox->isExpanded());
     }
     if (m_serialMonitor != nullptr) {
         m_serialMonitor->saveSettings();
@@ -647,6 +746,14 @@ void MainWindow::showInfoDialog(const QString &title, const QString &message)
     box.exec();
 }
 
+void MainWindow::onEditorDirtyChanged(bool dirty)
+{
+    if (sender() == m_activeEditor) {
+        m_dirty = dirty;
+        updateWindowTitle();
+    }
+}
+
 bool MainWindow::maybeSave()
 {
     if (!m_dirty) {
@@ -671,28 +778,25 @@ bool MainWindow::maybeSave()
 
 bool MainWindow::saveCurrentFile()
 {
+    if (m_activeEditor == nullptr) {
+        return false;
+    }
+
     if (m_currentFile.isEmpty()) {
         const QString path = QFileDialog::getSaveFileName(
             this,
-            "Save Structured Text",
-            "program.st",
-            "Structured Text (*.st)");
+            "Save Project",
+            m_activeEditor->editorKind() == DocumentEditor::Kind::Ladder ? "program.xml" : "program.st",
+            m_activeEditor->suggestedSaveFilter() + ";;All Files (*)");
         if (path.isEmpty()) {
             return false;
         }
         setCurrentFile(path);
+        activateEditorForPath(path);
     }
 
-    QFile file(m_currentFile);
-    if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text)) {
-        QMessageBox box(QMessageBox::Critical, "Save Failed", file.errorString(), QMessageBox::Ok, this);
-        styleMessageBox(box);
-        box.exec();
-        return false;
-    }
-
-    if (file.write(m_editor->toPlainText().toUtf8()) < 0) {
-        QMessageBox box(QMessageBox::Critical, "Save Failed", file.errorString(), QMessageBox::Ok, this);
+    if (!m_activeEditor->saveToPath(m_currentFile)) {
+        QMessageBox box(QMessageBox::Critical, "Save Failed", "Could not save the current project.", QMessageBox::Ok, this);
         styleMessageBox(box);
         box.exec();
         return false;
@@ -711,17 +815,56 @@ void MainWindow::setCurrentFile(const QString &path)
     updateWindowTitle();
 }
 
+void MainWindow::activateEditorForPath(const QString &path)
+{
+    if (isLadderProjectPath(path)) {
+        m_activeEditor = m_ladderEditor;
+        m_editorStack->setCurrentWidget(m_ladderEditor);
+    } else {
+        m_activeEditor = m_stEditor;
+        m_editorStack->setCurrentWidget(m_stEditor);
+    }
+    updateSidePanelForEditor();
+}
+
+void MainWindow::applyLadderSidePanelLayout(bool toolboxExpanded)
+{
+    if (m_ladderSidePanel == nullptr || m_ladderToolbox == nullptr || m_ladderPropertiesPanel == nullptr) {
+        return;
+    }
+
+    m_ladderPropertiesPanel->setVisible(toolboxExpanded);
+    if (toolboxExpanded) {
+        m_ladderSidePanel->setMinimumWidth(220);
+        m_ladderSidePanel->setMaximumWidth(320);
+        m_ladderToolbox->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+    } else {
+        m_ladderSidePanel->setMinimumWidth(24);
+        m_ladderSidePanel->setMaximumWidth(24);
+        m_ladderToolbox->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Expanding);
+    }
+}
+
+void MainWindow::updateSidePanelForEditor()
+{
+    if (m_activeEditor == m_ladderEditor) {
+        m_sidePanelStack->setCurrentWidget(m_ladderSidePanel);
+        applyLadderSidePanelLayout(m_ladderToolbox->isExpanded());
+    } else {
+        m_sidePanelStack->setCurrentWidget(m_stToolbox);
+    }
+}
+
 void MainWindow::openFilePath(const QString &path)
 {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QMessageBox box(QMessageBox::Critical, "Open Failed", file.errorString(), QMessageBox::Ok, this);
+    activateEditorForPath(path);
+    if (m_activeEditor == nullptr || !m_activeEditor->loadFromPath(path)) {
+        QMessageBox box(QMessageBox::Critical, "Open Failed", "Could not open " + path, QMessageBox::Ok, this);
         styleMessageBox(box);
         box.exec();
         return;
     }
 
-    m_editor->setPlainText(QString::fromUtf8(file.readAll()));
     setCurrentFile(path);
     m_lastPackagePath.clear();
     m_dirty = false;
@@ -730,9 +873,141 @@ void MainWindow::openFilePath(const QString &path)
     saveSettings();
 }
 
+void MainWindow::newStructuredTextDocument()
+{
+    if (!maybeSave()) {
+        return;
+    }
+    m_activeEditor = m_stEditor;
+    m_editorStack->setCurrentWidget(m_stEditor);
+    updateSidePanelForEditor();
+    m_stEditor->newDocument();
+    m_currentFile.clear();
+    m_lastPackagePath.clear();
+    m_dirty = m_stEditor->isDirty();
+    updateWindowTitle();
+    appendLog("New ST document.");
+}
+
+void MainWindow::newLadderDocument()
+{
+    if (!maybeSave()) {
+        return;
+    }
+    m_activeEditor = m_ladderEditor;
+    m_editorStack->setCurrentWidget(m_ladderEditor);
+    updateSidePanelForEditor();
+    m_ladderEditor->newDocument();
+    m_currentFile.clear();
+    m_lastPackagePath.clear();
+    m_dirty = m_ladderEditor->isDirty();
+    updateWindowTitle();
+    appendLog("New ladder project.");
+}
+
+void MainWindow::importStToLadder()
+{
+    if (m_stImport.isBusy()) {
+        appendLog(QStringLiteral("ST import already in progress."));
+        return;
+    }
+
+    QString source;
+    QString suggestedPath = m_currentFile;
+
+    if (m_activeEditor == m_stEditor && m_stEditor != nullptr && m_stEditor->editor() != nullptr) {
+        source = m_stEditor->editor()->toPlainText();
+    }
+
+    if (source.trimmed().isEmpty()) {
+        const QString path = QFileDialog::getOpenFileName(this,
+                                                          QStringLiteral("Import Structured Text"),
+                                                          suggestedPath,
+                                                          QStringLiteral("Structured Text (*.st);;All Files (*)"));
+        if (path.isEmpty()) {
+            return;
+        }
+        suggestedPath = path;
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            showInfoDialog(QStringLiteral("Import Failed"), file.errorString());
+            return;
+        }
+        source = QString::fromUtf8(file.readAll());
+    } else if (!maybeSave()) {
+        return;
+    }
+
+    m_pendingStImportSuggestedPath = suggestedPath;
+    appendLog(QStringLiteral("Importing Structured Text in background..."));
+    m_stImport.importAsync(source);
+}
+
+void MainWindow::handleStImportFinished(const StLadderImporter::Result &result)
+{
+    setBackgroundTaskUiEnabled(true);
+    if (m_statusLabel != nullptr) {
+        m_statusLabel->clear();
+    }
+
+    if (!result.ok) {
+        QMessageBox box(this);
+        box.setIcon(QMessageBox::Warning);
+        box.setWindowTitle(QStringLiteral("Import ST to Ladder"));
+        box.setText(QStringLiteral("Could not convert Structured Text to ladder logic."));
+        if (!result.diagnostics.isEmpty()) {
+            box.setDetailedText(result.diagnostics.join('\n'));
+        }
+        styleMessageBox(box);
+        box.exec();
+        return;
+    }
+
+    if (m_ladderEditor == nullptr) {
+        return;
+    }
+
+    m_ladderEditor->applyImportedProgram(result.program);
+    m_activeEditor = m_ladderEditor;
+    m_editorStack->setCurrentWidget(m_ladderEditor);
+    updateSidePanelForEditor();
+    m_currentFile.clear();
+    m_lastPackagePath.clear();
+    m_dirty = true;
+    updateWindowTitle();
+
+    appendLog(QStringLiteral("Imported Structured Text as ladder project."));
+    if (!result.diagnostics.isEmpty()) {
+        appendLog(result.diagnostics.join('\n'));
+    }
+
+    const QString suggestedPath = m_pendingStImportSuggestedPath;
+    m_pendingStImportSuggestedPath.clear();
+    if (!suggestedPath.isEmpty() && suggestedPath.endsWith(QStringLiteral(".st"), Qt::CaseInsensitive)) {
+        appendLog(QStringLiteral("Save the ladder project as .xml when you are ready."));
+    }
+}
+
+void MainWindow::cleanupTempCompileFile()
+{
+    if (!m_tempCompileCleanupPath.isEmpty()) {
+        QFile::remove(m_tempCompileCleanupPath);
+        m_tempCompileCleanupPath.clear();
+    }
+}
+
 bool MainWindow::compileCurrent()
 {
     saveSettings();
+
+    if (m_activeEditor == nullptr) {
+        return false;
+    }
+
+    if (m_compiler.isBusy()) {
+        appendLog(QStringLiteral("Compile already in progress."));
+        return false;
+    }
 
     if (m_currentFile.isEmpty() || m_dirty) {
         if (!saveCurrentFile()) {
@@ -740,30 +1015,96 @@ bool MainWindow::compileCurrent()
         }
     }
 
-    const QString outputPath = packagePathForSource(m_currentFile);
-    QString combinedOutput;
-    appendLog(QString("Compiling %1 -> %2").arg(m_currentFile, outputPath));
-
-    const bool ok = m_compiler.compile(m_currentFile, outputPath, combinedOutput);
-    if (!combinedOutput.isEmpty()) {
-        appendLog(combinedOutput.trimmed());
-    }
-
-    if (!ok) {
-        QMessageBox box(QMessageBox::Critical, "Compile Failed", combinedOutput.trimmed(), QMessageBox::Ok, this);
+    cleanupTempCompileFile();
+    const QString compileInput = m_activeEditor->compileInputPath(&m_tempCompileCleanupPath);
+    if (compileInput.isEmpty()) {
+        QMessageBox box(QMessageBox::Critical,
+                        "Compile Failed",
+                        "Could not prepare a compile input for the current project.",
+                        QMessageBox::Ok,
+                        this);
         styleMessageBox(box);
         box.exec();
         return false;
     }
 
-    m_lastPackagePath = outputPath;
+    const QString outputPath = packagePathForSource(compileInput);
+    appendLog(QString("Compiling %1 -> %2").arg(compileInput, outputPath));
+    m_compiler.compileAsync(compileInput, outputPath);
+    return true;
+}
+
+void MainWindow::handleCompileFinished(const CompileResult &result)
+{
+    cleanupTempCompileFile();
+    setBackgroundTaskUiEnabled(true);
+    if (m_statusLabel != nullptr) {
+        m_statusLabel->clear();
+    }
+
+    if (!result.combinedOutput.isEmpty()) {
+        appendLog(result.combinedOutput.trimmed());
+    }
+
+    if (!result.success) {
+        QMessageBox box(QMessageBox::Critical,
+                        "Compile Failed",
+                        result.combinedOutput.trimmed(),
+                        QMessageBox::Ok,
+                        this);
+        styleMessageBox(box);
+        box.exec();
+        return;
+    }
+
+    m_lastPackagePath = result.outputPath;
     updateWindowTitle();
-    appendLog(QString("Compile succeeded (%1 bytes).").arg(QFileInfo(outputPath).size()));
+    appendLog(QString("Compile succeeded (%1 bytes).").arg(QFileInfo(result.outputPath).size()));
     showInfoDialog("Compile Complete",
                    QString("Compiled %1\n\n%2 bytes written to:\n%3")
-                       .arg(QFileInfo(m_currentFile).fileName())
-                       .arg(QFileInfo(outputPath).size())
-                       .arg(outputPath));
+                       .arg(QFileInfo(result.sourcePath).fileName())
+                       .arg(QFileInfo(result.outputPath).size())
+                       .arg(result.outputPath));
+}
+
+void MainWindow::setBackgroundTaskUiEnabled(bool enabled)
+{
+    if (m_compileAction != nullptr) {
+        m_compileAction->setEnabled(enabled);
+    }
+    if (m_compileButton != nullptr) {
+        m_compileButton->setEnabled(enabled);
+    }
+    if (m_importStToLadderAction != nullptr) {
+        m_importStToLadderAction->setEnabled(enabled);
+    }
+    if (m_importStToLadderButton != nullptr) {
+        m_importStToLadderButton->setEnabled(enabled);
+    }
+}
+
+bool MainWindow::waitForBackgroundTasks()
+{
+    if (!m_compiler.isBusy() && !m_stImport.isBusy()) {
+        return true;
+    }
+
+    QMessageBox box(QMessageBox::Question,
+                    QStringLiteral("Background Task Running"),
+                    QStringLiteral("A compile or import is still running. Wait for it to finish?"),
+                    QMessageBox::Yes | QMessageBox::No,
+                    this);
+    styleMessageBox(box);
+    if (box.exec() != QMessageBox::Yes) {
+        return false;
+    }
+
+    m_compiler.waitForIdle();
+    m_stImport.waitForIdle();
+    setBackgroundTaskUiEnabled(true);
+    if (m_statusLabel != nullptr) {
+        m_statusLabel->clear();
+    }
     return true;
 }
 
@@ -788,6 +1129,11 @@ void MainWindow::discoverDevices()
 void MainWindow::closeEvent(QCloseEvent *event)
 {
     saveSettings();
+    if (!waitForBackgroundTasks()) {
+        event->ignore();
+        return;
+    }
+    cleanupTempCompileFile();
     if (m_serialMonitor != nullptr) {
         m_serialMonitor->disconnectPort();
     }

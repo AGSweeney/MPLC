@@ -6,6 +6,7 @@
 #include "mplc/stdlib.h"
 #include "mplc/vm.h"
 #include "mplc_hal.h"
+#include <stddef.h>
 #include <string.h>
 
 typedef struct {
@@ -75,16 +76,23 @@ static void ton_cycle(mplc_vm_t *vm, void *inst, const int32_t *params)
     bool in = params[0] != 0;
     int32_t pt_ms = params[1];
     uint64_t now = vm_time_us(vm);
+    uint64_t pt_us = (pt_ms > 0) ? (uint64_t)pt_ms * 1000ULL : 0ULL;
 
-    if (in && !fb->in_prev) {
-        fb->start_us = now;
-    }
     if (!in) {
         fb->q = false;
+        fb->in_prev = false;
+        fb->start_us = 0U;
+        return;
+    }
+
+    if (!fb->in_prev) {
         fb->start_us = now;
-    } else if ((now - fb->start_us) >= (uint64_t)pt_ms * 1000ULL) {
+        fb->q = false;
+    } else if (pt_us > 0U && fb->start_us != 0U &&
+               (now - fb->start_us) >= pt_us) {
         fb->q = true;
     }
+
     fb->in_prev = in;
 }
 
@@ -285,4 +293,53 @@ uint32_t mplc_stdlib_instance_size(mplc_native_fb_t type)
 {
     const mplc_fb_vtable_t *vt = mplc_stdlib_get_vtable(type);
     return vt ? vt->instance_size : 0U;
+}
+
+uint32_t mplc_fb_bool_output_offset(mplc_native_fb_t type, uint32_t output_index)
+{
+    switch (type) {
+    case MPLC_FB_TON:
+        return (uint32_t)offsetof(mplc_fb_ton_t, q);
+    case MPLC_FB_TOF:
+        return (uint32_t)offsetof(mplc_fb_tof_t, q);
+    case MPLC_FB_TP:
+        return (uint32_t)offsetof(mplc_fb_tp_t, q);
+    case MPLC_FB_CTU:
+    case MPLC_FB_CTD:
+    case MPLC_FB_R_TRIG:
+    case MPLC_FB_F_TRIG:
+        return (uint32_t)offsetof(mplc_fb_ctu_t, q);
+    case MPLC_FB_CTUD:
+        return output_index == 0U ? (uint32_t)offsetof(mplc_fb_ctud_t, qu)
+                                    : (uint32_t)offsetof(mplc_fb_ctud_t, qd);
+    case MPLC_FB_SR:
+    case MPLC_FB_RS:
+        return (uint32_t)offsetof(mplc_fb_sr_t, q1);
+    default:
+        return 0U;
+    }
+}
+
+bool mplc_stdlib_param_is_bool(mplc_native_fb_t type, int param_index)
+{
+    switch (type) {
+    case MPLC_FB_TON:
+    case MPLC_FB_TOF:
+    case MPLC_FB_TP:
+        return param_index == 0;
+    case MPLC_FB_CTU:
+    case MPLC_FB_CTD:
+        return param_index == 0 || param_index == 1;
+    case MPLC_FB_CTUD:
+        return param_index >= 0 && param_index <= 3;
+    case MPLC_FB_R_TRIG:
+    case MPLC_FB_F_TRIG:
+        return param_index == 0;
+    case MPLC_FB_SR:
+        return param_index == 0 || param_index == 1;
+    case MPLC_FB_RS:
+        return param_index == 0 || param_index == 1;
+    default:
+        return false;
+    }
 }

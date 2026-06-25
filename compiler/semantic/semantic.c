@@ -64,6 +64,8 @@ static int analyze_expr(ir_expr_t *expr, diag_ctx_t *diag, const char *file)
         for (i = 0; i < expr->u.native_fb.param_count; i++) {
             if (analyze_expr(expr->u.native_fb.params[i], diag, file) != 0) return -1;
         }
+    } else if (expr->kind == IR_EXPR_FB_OUTPUT) {
+        (void)expr;
     }
     return 0;
 }

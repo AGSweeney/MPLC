@@ -40,6 +40,9 @@ C_SRC += \
 	runtime.c \
 	io.c \
 	stdlib.c \
+	motion.c \
+	mc_fb.c \
+	motion_hal_default.c \
 	mplc_plc_runtime.c \
 	embedded_mplc.c
 
@@ -65,6 +68,7 @@ override VPATH += \
 	$(MPLC_ROOT)/runtime/core \
 	$(MPLC_ROOT)/runtime/io \
 	$(MPLC_ROOT)/runtime/stdlib \
+	$(MPLC_ROOT)/runtime/motion \
 	../ \
 	src \
 	$(EFFS_STD_ROOT)/src

@@ -152,6 +152,13 @@ static void gen_expr(codegen_buf_t *buf, const ir_expr_t *e)
         track_pop(buf, (uint32_t)e->u.native_fb.param_count);
         break;
     }
+    case IR_EXPR_FB_OUTPUT:
+        codegen_emit_u8(buf, MPLC_OP_READ_FB_BOOL);
+        codegen_emit_u16(buf, (uint16_t)e->u.fb_output.fb_type);
+        codegen_emit_i32(buf, e->u.fb_output.instance_offset);
+        codegen_emit_u8(buf, e->u.fb_output.output_index);
+        track_push(buf);
+        break;
     default:
         break;
     }

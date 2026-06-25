@@ -4,11 +4,17 @@
  */
 
 #include "MainWindow.h"
+#include "WorkerPool.h"
+#include "CompilerService.h"
+#include "StImportService.h"
 
 #include <QApplication>
 #include <QFont>
 #include <QIcon>
 #include <QStyleFactory>
+
+Q_DECLARE_METATYPE(CompileResult)
+Q_DECLARE_METATYPE(StLadderImporter::Result)
 
 int main(int argc, char *argv[])
 {
@@ -26,6 +32,10 @@ int main(int argc, char *argv[])
     appFont.setStyleStrategy(QFont::PreferAntialias);
     app.setFont(appFont);
     app.setWindowIcon(QIcon(":/icons/app-icon-256.png"));
+
+    WorkerPool::configure();
+    qRegisterMetaType<CompileResult>("CompileResult");
+    qRegisterMetaType<StLadderImporter::Result>("StLadderImporter::Result");
 
     MainWindow window;
     window.setWindowIcon(QIcon(":/icons/app-icon-256.png"));

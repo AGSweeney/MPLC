@@ -4,6 +4,7 @@
  */
 
 #include "ir.h"
+#include "mplc/stdlib.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -89,6 +90,18 @@ ir_expr_t *ir_expr_call_native_fb(mplc_native_fb_t fb, int32_t inst_off, ir_expr
     return e;
 }
 
+ir_expr_t *ir_expr_fb_output(mplc_native_fb_t fb, int32_t inst_off, uint8_t output_index)
+{
+    ir_expr_t *e = alloc_expr();
+    if (!e) return NULL;
+    e->kind = IR_EXPR_FB_OUTPUT;
+    e->type = MPLC_TYPE_BOOL;
+    e->u.fb_output.fb_type = fb;
+    e->u.fb_output.instance_offset = inst_off;
+    e->u.fb_output.output_index = output_index;
+    return e;
+}
+
 void ir_module_init(ir_module_t *mod)
 {
     memset(mod, 0, sizeof(*mod));
@@ -99,6 +112,7 @@ void ir_module_free(ir_module_t *mod)
 {
     free(mod->pous);
     free(mod->globals);
+    free(mod->fb_instances);
     memset(mod, 0, sizeof(*mod));
 }
 
@@ -121,5 +135,25 @@ int ir_module_add_global(ir_module_t *mod, const ir_var_t *var)
     if (!nv) return -2;
     mod->globals = nv;
     mod->globals[mod->global_count++] = *var;
+    return 0;
+}
+
+int ir_module_add_fb_instance(ir_module_t *mod, mplc_native_fb_t fb_type,
+                              int32_t instance_offset, uint16_t instance_id)
+{
+    ir_fb_instance_t *ni;
+    if (!mod) return -1;
+    ni = (ir_fb_instance_t *)realloc(mod->fb_instances,
+                                     (mod->fb_instance_count + 1U) * sizeof(*ni));
+    if (!ni) return -2;
+    mod->fb_instances = ni;
+    ni = &mod->fb_instances[mod->fb_instance_count];
+    ni->fb_type = fb_type;
+    ni->instance_offset = instance_offset;
+    ni->instance_id = instance_id;
+    mod->fb_instance_count++;
+    if ((uint32_t)instance_offset + mplc_stdlib_instance_size(fb_type) > mod->fb_arena_size) {
+        mod->fb_arena_size = (uint32_t)instance_offset + mplc_stdlib_instance_size(fb_type);
+    }
     return 0;
 }

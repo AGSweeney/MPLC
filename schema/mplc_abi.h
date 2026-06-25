@@ -113,6 +113,7 @@ typedef enum {
     MPLC_OP_CALL     = 53,
     MPLC_OP_CALL_NATIVE_FB = 54,
     MPLC_OP_RET      = 55,
+    MPLC_OP_READ_FB_BOOL = 56,
 
     /* Cast / convert */
     MPLC_OP_I32_TO_R64 = 60,

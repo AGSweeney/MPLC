@@ -17,7 +17,8 @@ typedef enum {
     IR_EXPR_BINOP,
     IR_EXPR_UNOP,
     IR_EXPR_CALL,
-    IR_EXPR_CALL_NATIVE_FB
+    IR_EXPR_CALL_NATIVE_FB,
+    IR_EXPR_FB_OUTPUT
 } ir_expr_kind_t;
 
 typedef enum {
@@ -56,6 +57,11 @@ struct ir_expr {
             int32_t          param_count;
             ir_expr_t      **params;
         } native_fb;
+        struct {
+            mplc_native_fb_t fb_type;
+            int32_t          instance_offset;
+            uint8_t          output_index;
+        } fb_output;
     } u;
 };
 
@@ -128,10 +134,19 @@ typedef struct {
 } ir_var_t;
 
 typedef struct {
+    mplc_native_fb_t fb_type;
+    int32_t          instance_offset;
+    uint16_t         instance_id;
+} ir_fb_instance_t;
+
+typedef struct {
     ir_pou_t  *pous;
     uint32_t   pou_count;
     ir_var_t  *globals;
     uint32_t   global_count;
+    ir_fb_instance_t *fb_instances;
+    uint32_t   fb_instance_count;
+    uint32_t   fb_arena_size;
     uint32_t   default_cycle_us;
 } ir_module_t;
 
@@ -142,10 +157,13 @@ ir_expr_t *ir_expr_io(uint16_t index, mplc_type_t type);
 ir_expr_t *ir_expr_binop(ir_binop_t op, ir_expr_t *l, ir_expr_t *r, mplc_type_t type);
 ir_expr_t *ir_expr_unop(ir_unop_t op, ir_expr_t *e, mplc_type_t type);
 ir_expr_t *ir_expr_call_native_fb(mplc_native_fb_t fb, int32_t inst_off, ir_expr_t **params, int n);
+ir_expr_t *ir_expr_fb_output(mplc_native_fb_t fb, int32_t inst_off, uint8_t output_index);
 
 void ir_module_init(ir_module_t *mod);
 void ir_module_free(ir_module_t *mod);
 int  ir_module_add_pou(ir_module_t *mod, const ir_pou_t *pou);
 int  ir_module_add_global(ir_module_t *mod, const ir_var_t *var);
+int  ir_module_add_fb_instance(ir_module_t *mod, mplc_native_fb_t fb_type,
+                               int32_t instance_offset, uint16_t instance_id);
 
 #endif

@@ -4,7 +4,7 @@
 cmake_minimum_required(VERSION 3.21)
 
 project(MPLCStudio
-    VERSION 0.1.0
+    VERSION 0.1.1
     DESCRIPTION "Qt IDE for MPLC Structured Text and NetBurner deployment"
     LANGUAGES CXX
 )

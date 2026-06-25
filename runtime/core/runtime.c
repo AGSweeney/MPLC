@@ -18,7 +18,9 @@
 struct mplc_runtime {
     mplc_loaded_pkg_t   pkg;
     uint8_t            *data_segment;
+    size_t              data_segment_size;
     uint8_t            *fb_arena;
+    size_t              fb_arena_size;
     mplc_vm_t          *vm;
     mplc_scheduler_t   *scheduler;
     mplc_io_ctx_t       io_ctx;
@@ -67,7 +69,9 @@ int mplc_runtime_create(mplc_runtime_t **out_rt, const mplc_runtime_config_t *cf
         return -2;
     }
     rt->data_segment = (uint8_t *)malloc(cfg->data_size);
-    rt->fb_arena = (uint8_t *)malloc(cfg->fb_arena_size);
+    rt->data_segment_size = cfg->data_size;
+    rt->fb_arena = (uint8_t *)calloc(1, cfg->fb_arena_size);
+    rt->fb_arena_size = cfg->fb_arena_size;
     if (!rt->data_segment || !rt->fb_arena) {
         mplc_runtime_destroy(rt);
         return -3;
@@ -110,6 +114,10 @@ int mplc_runtime_load_package(mplc_runtime_t *rt, const uint8_t *data, size_t si
             memset(rt->data_segment, 0, copy);
             memcpy(rt->data_segment, rt->pkg.data_base, copy);
         }
+    }
+
+    if (rt->fb_arena && rt->fb_arena_size > 0U) {
+        memset(rt->fb_arena, 0, rt->fb_arena_size);
     }
 
     for (i = 0; i < rt->pkg.fb_count; i++) {
